@@ -665,7 +665,7 @@ parameter_types! {
     pub const EthereumInstanceId: u8 = 1u8;
     pub const MinRatesRefreshRange: u32 = 5;
     pub const PriceRefreshRangeInBlocks: u32 = 50; // 10 minutes
-    pub const MinBurnRefreshRange: u32 = 7200;
+    pub const MinBurnPeriod: u32 = 7200;
     pub const BurnEnabled: bool = true;
 }
 
@@ -700,7 +700,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
-    type MinBurnRefreshRange = MinBurnRefreshRange;
+    type MinBurnPeriod = MinBurnPeriod;
     type BurnEnabled = BurnEnabled;
 }
 

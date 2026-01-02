@@ -33,8 +33,8 @@ use frame_support::{
             v3::{Anon as ScheduleAnon, Named as ScheduleNamed, TaskName},
             DispatchTime, HARD_DEADLINE,
         },
-        Currency, ExistenceRequirement, Get, Imbalance, IsSubType, QueryPreimage, StorePreimage,
-        WithdrawReasons,
+        Currency, ExistenceRequirement, Get, Imbalance, IsSubType, QueryPreimage,
+        ReservableCurrency, StorePreimage, WithdrawReasons,
     },
     BoundedVec, PalletId, Parameter,
 };
@@ -51,7 +51,7 @@ use sp_avn_common::{
     },
     verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, Proof,
 };
-use sp_core::{ConstU32, MaxEncodedLen, H160, H256, U256};
+use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{
@@ -127,7 +127,7 @@ pub mod pallet {
             + GetDispatchInfo
             + From<frame_system::Call<Self>>;
         /// Currency type for lifting
-        type Currency: Currency<Self::AccountId>;
+        type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
         /// The units in which we record balances of tokens others than AVT
         type TokenBalance: Member + Parameter + AtLeast32Bit + Default + Copy + MaxEncodedLen;
         /// The type of token identifier
@@ -170,10 +170,10 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
         /// Minimum Burn Refresh range
         #[pallet::constant]
-        type MinBurnRefreshRange: Get<u32>;
         /// Minimum allowed treasury burn threshold
         #[pallet::constant]
         type TreasuryBurnThreshold: Get<Perbill>;
+        type MinBurnPeriod: Get<u32>;
         /// Flag to enable burn mechanism
         #[pallet::constant]
         type BurnEnabled: Get<bool>;
@@ -273,7 +273,11 @@ pub mod pallet {
         BurnPeriodUpdated {
             burn_period: u32,
         },
-        BurnedFromPot {
+        BurnRequested {
+            amount: BalanceOf<T>,
+        },
+        BurnConfirmed {
+            tx_id: u32,
             amount: BalanceOf<T>,
         },
         TreasuryExcessSentToBurnPot {
@@ -311,6 +315,8 @@ pub mod pallet {
         LoweringDisabled,
         InvalidLiftRequest,
         InvalidBurnPeriod,
+        ErrorLockingTokens,
+        FailedToSubmitBurnRequest,
     }
 
     #[pallet::storage]
@@ -373,11 +379,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn burn_submission)]
     pub type PendingBurnSubmission<T: Config> =
-        StorageMap<_, Blake2_128Concat, u32, U256, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, u32, BalanceOf<T>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn burn_refresh_range)]
-    pub type BurnRefreshRange<T> = StorageValue<_, u32, ValueQuery, DefaultBurnRefreshRange<T>>;
+    pub type BurnPeriod<T> = StorageValue<_, u32, ValueQuery, DefaultBurnRefreshRange<T>>;
 
     #[pallet::storage]
     #[pallet::getter(fn burn_enabled)]
@@ -389,7 +395,7 @@ pub mod pallet {
 
     #[pallet::type_value]
     pub fn DefaultBurnRefreshRange<T: Config>() -> u32 {
-        T::MinBurnRefreshRange::get()
+        T::MinBurnPeriod::get()
     }
 
     #[pallet::genesis_config]
@@ -681,13 +687,9 @@ pub mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_burn_period())]
         pub fn set_burn_period(origin: OriginFor<T>, burn_period: u32) -> DispatchResult {
             ensure_root(origin)?;
-            ensure!(burn_period >= T::MinBurnRefreshRange::get(), Error::<T>::InvalidBurnPeriod);
+            ensure!(burn_period >= T::MinBurnPeriod::get(), Error::<T>::InvalidBurnPeriod);
 
-            BurnRefreshRange::<T>::put(burn_period);
-
-            // reschedule from current block
-            let now = <frame_system::Pallet<T>>::block_number();
-            NextBurnAt::<T>::put(now.saturating_add(burn_period.into()));
+            BurnPeriod::<T>::put(burn_period);
 
             Self::deposit_event(Event::<T>::BurnPeriodUpdated { burn_period });
             Ok(())
@@ -701,7 +703,7 @@ pub mod pallet {
                 return <T as Config>::WeightInfo::on_initialize_burn_not_due();
             }
 
-            return Self::burn_if_required(n);
+            return Self::burn(n);
         }
     }
 }
@@ -1248,8 +1250,19 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
             return Ok(()); // Ignore irrelevant transactions
         }
 
+        let amount = match PendingBurnSubmission::<T>::take(tx_id) {
+            Some(amount) => amount,
+            None => return Ok(()),
+        };
+
+        let burn_pot = Self::burn_pot_account();
+        T::Currency::unreserve(&burn_pot, amount);
+
         if succeeded {
-            PendingBurnSubmission::<T>::remove(tx_id);
+            let (imbalance, _) = T::Currency::slash(&burn_pot, amount);
+            drop(imbalance);
+
+            Self::deposit_event(Event::<T>::BurnConfirmed { amount, tx_id });
         } else {
             log::error!("Transaction failed on Ethereum. TxId: {:?}", tx_id);
         }

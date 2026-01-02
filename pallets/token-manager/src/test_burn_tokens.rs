@@ -44,7 +44,7 @@ mod burn_tests {
                     assert_ok!(TokenManager::set_burn_period(RuntimeOrigin::root(), new_period,));
 
                     // storage updated correctly
-                    assert_eq!(BurnRefreshRange::<TestRuntime>::get(), new_period);
+                    assert_eq!(BurnPeriod::<TestRuntime>::get(), new_period);
 
                     // next burn rescheduled from "now"
                     let expected_next: u64 = current_block + new_period as u64;
@@ -96,8 +96,7 @@ mod burn_tests {
                     let current_block: u64 = 1;
                     frame_system::Pallet::<TestRuntime>::set_block_number(current_block);
 
-                    let min_burn_period =
-                        <TestRuntime as crate::Config>::MinBurnRefreshRange::get();
+                    let min_burn_period = <TestRuntime as crate::Config>::MinBurnPeriod::get();
                     let invalid_period = min_burn_period.saturating_sub(1);
                     assert_noop!(
                         TokenManager::set_burn_period(RuntimeOrigin::root(), invalid_period,),
@@ -139,7 +138,7 @@ mod burn_tests {
                     // event emitted
                     assert!(event_emitted(&mock::RuntimeEvent::TokenManager(crate::Event::<
                         TestRuntime,
-                    >::BurnedFromPot {
+                    >::BurnRequested {
                         amount
                     })));
                 });
@@ -174,7 +173,7 @@ mod burn_tests {
                     // event NOT emitted
                     assert!(!event_emitted(&mock::RuntimeEvent::TokenManager(crate::Event::<
                         TestRuntime,
-                    >::BurnedFromPot {
+                    >::BurnRequested {
                         amount
                     })));
                 });
@@ -205,7 +204,7 @@ mod burn_tests {
                     // event NOT emitted (because amount is zero)
                     assert!(!event_emitted(&mock::RuntimeEvent::TokenManager(crate::Event::<
                         TestRuntime,
-                    >::BurnedFromPot {
+                    >::BurnRequested {
                         amount
                     })));
                 });
@@ -238,7 +237,7 @@ mod burn_tests {
                     // event NOT emitted
                     assert!(!event_emitted(&mock::RuntimeEvent::TokenManager(crate::Event::<
                         TestRuntime,
-                    >::BurnedFromPot {
+                    >::BurnRequested {
                         amount
                     })));
                 });
