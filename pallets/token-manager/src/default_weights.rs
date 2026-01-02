@@ -214,8 +214,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(8_660_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `TokenManager::BurnRefreshRange` (r:0 w:1)
-	/// Proof: `TokenManager::BurnRefreshRange` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:0 w:1)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `TokenManager::NextBurnAt` (r:0 w:1)
 	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn set_burn_period() -> Weight {
@@ -240,8 +240,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:0)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `TokenManager::BurnRefreshRange` (r:1 w:0)
-	/// Proof: `TokenManager::BurnRefreshRange` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:1 w:0)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn on_initialize_burn_due_but_pot_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `206`
@@ -267,8 +267,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
 	/// Storage: `Avn::PrimaryCollatorIndexForSending` (r:1 w:1)
 	/// Proof: `Avn::PrimaryCollatorIndexForSending` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	/// Storage: `TokenManager::BurnRefreshRange` (r:1 w:0)
-	/// Proof: `TokenManager::BurnRefreshRange` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:1 w:0)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `TokenManager::PendingBurnSubmission` (r:0 w:1)
 	/// Proof: `TokenManager::PendingBurnSubmission` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	fn on_initialize_burn_due_and_pot_has_funds_to_burn() -> Weight {
@@ -442,8 +442,8 @@ impl WeightInfo for () {
 		Weight::from_parts(8_660_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: `TokenManager::BurnRefreshRange` (r:0 w:1)
-	/// Proof: `TokenManager::BurnRefreshRange` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:0 w:1)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `TokenManager::NextBurnAt` (r:0 w:1)
 	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn set_burn_period() -> Weight {
@@ -468,8 +468,8 @@ impl WeightInfo for () {
 	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:0)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `TokenManager::BurnRefreshRange` (r:1 w:0)
-	/// Proof: `TokenManager::BurnRefreshRange` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:1 w:0)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	fn on_initialize_burn_due_but_pot_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `206`
@@ -495,8 +495,8 @@ impl WeightInfo for () {
 	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
 	/// Storage: `Avn::PrimaryCollatorIndexForSending` (r:1 w:1)
 	/// Proof: `Avn::PrimaryCollatorIndexForSending` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	/// Storage: `TokenManager::BurnRefreshRange` (r:1 w:0)
-	/// Proof: `TokenManager::BurnRefreshRange` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:1 w:0)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `TokenManager::PendingBurnSubmission` (r:0 w:1)
 	/// Proof: `TokenManager::PendingBurnSubmission` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
 	fn on_initialize_burn_due_and_pot_has_funds_to_burn() -> Weight {

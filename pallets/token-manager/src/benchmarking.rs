@@ -384,14 +384,14 @@ benchmarks! {
     }
 
     set_burn_period {
-        let min = T::MinBurnRefreshRange::get();
+        let min = T::MinBurnPeriod::get();
         let burn_period: u32 = min.saturating_add(1);
 
         frame_system::Pallet::<T>::set_block_number(1u32.into());
         let now = frame_system::Pallet::<T>::block_number();
     }: _(RawOrigin::Root, burn_period)
     verify {
-        assert_eq!(BurnRefreshRange::<T>::get(), burn_period);
+        assert_eq!(BurnPeriod::<T>::get(), burn_period);
 
         let expected_next = now.saturating_add(burn_period.into());
         assert_eq!(NextBurnAt::<T>::get(), expected_next);
@@ -418,7 +418,7 @@ benchmarks! {
     }
     verify {
         assert_event_emitted::<T>(
-            Event::<T>::BurnedFromPot { amount }.into()
+            Event::<T>::BurnRequested { amount }.into()
         );
     }
 
@@ -440,7 +440,7 @@ benchmarks! {
     }
     verify {
         assert_event_not_emitted::<T>(
-            Event::<T>::BurnedFromPot { amount }.into()
+            Event::<T>::BurnRequested { amount }.into()
         );
     }
 
@@ -460,7 +460,7 @@ benchmarks! {
     }
     verify {
         assert_event_not_emitted::<T>(
-            Event::<T>::BurnedFromPot { amount }.into()
+            Event::<T>::BurnRequested { amount }.into()
         );
     }
 }

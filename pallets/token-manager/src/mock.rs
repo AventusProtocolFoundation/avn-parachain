@@ -90,7 +90,7 @@ parameter_types! {
 }
 
 parameter_types! {
-    pub const MinBurnRefreshRange: u32 = 50;
+    pub const MinBurnPeriod: u32 = 50;
     pub static BurnEnabledFlag: bool = true;
 }
 
@@ -118,7 +118,7 @@ impl token_manager::Config for TestRuntime {
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
-    type MinBurnRefreshRange = MinBurnRefreshRange;
+    type MinBurnPeriod = MinBurnPeriod;
     type BurnEnabled = BurnEnabled;
 }
 
