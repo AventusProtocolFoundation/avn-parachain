@@ -285,7 +285,7 @@ mod treasury_tests {
 
                     let from = account_id_with_100_avt();
 
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(&from, fund_amount)
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(), fund_amount)
                         .unwrap();
 
                     assert_eq!(Curr::free_balance(&treasury), fund_amount);
@@ -316,8 +316,7 @@ mod treasury_tests {
                     let excess = 500u128;
                     let fund_amount = threshold.saturating_add(excess);
 
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(
-                        &from,
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(                        &from.clone(),
                         fund_amount,
                     )
                     .unwrap();
@@ -349,8 +348,7 @@ mod treasury_tests {
 
                     // 1) Fund just below threshold (no burn)
                     let first = threshold.saturating_sub(10);
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(
-                        &from,
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(                        &from.clone(),
                         first,
                     )
                     .unwrap();
@@ -359,8 +357,7 @@ mod treasury_tests {
 
                     // 2) Fund +50 => now 40 over threshold => 40 should move
                     let second = 50u128;
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(
-                        &from,
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(                        &from.clone(),
                         second,
                     )
                     .unwrap();
@@ -370,8 +367,7 @@ mod treasury_tests {
 
                     // 3) Fund +100 => treasury already at threshold, so all 100 is excess => all moves
                     let third = 100u128;
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(
-                        &from,
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(                        &from.clone(),
                         third,
                     )
                     .unwrap();
