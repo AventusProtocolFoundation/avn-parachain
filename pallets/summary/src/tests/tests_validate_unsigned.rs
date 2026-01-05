@@ -59,20 +59,10 @@ pub mod input_is_record_summary_calculation {
         use super::*;
 
         fn test_record_summary_calculation_call_fails(call: &crate::Call<TestRuntime>) {
-            let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-                .with_validators()
-                .for_offchain_worker()
-                .as_externality_with_state();
-
-            ext.execute_with(|| {
-                assert_noop!(
-                    <Summary as ValidateUnsigned>::validate_unsigned(
-                        TransactionSource::Local,
-                        call
-                    ),
-                    InvalidTransaction::Custom(ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY)
-                );
-            });
+            assert_noop!(
+                <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
+                InvalidTransaction::Custom(ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY)
+            );
         }
 
         #[test]
@@ -609,40 +599,25 @@ fn get_cast_vote_call(context: &Context, is_approve_root: bool) -> crate::Call<T
 }
 
 fn test_vote_is_successful(is_approve_root: bool) {
-    let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-        .with_validators()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    let context = setup_context();
+    setup_voting_for_root_id(&context);
 
-    ext.execute_with(|| {
-        let context = setup_context();
-
-        setup_voting_for_root_id(&context);
-
-        assert_eq!(
-            <Summary as ValidateUnsigned>::validate_unsigned(
-                TransactionSource::Local,
-                &get_cast_vote_call(&context, is_approve_root)
-            ),
-            expected_valid_cast_vote_transaction(context, is_approve_root)
-        );
-    });
+    assert_eq!(
+        <Summary as ValidateUnsigned>::validate_unsigned(
+            TransactionSource::Local,
+            &get_cast_vote_call(&context, is_approve_root)
+        ),
+        expected_valid_cast_vote_transaction(context, is_approve_root)
+    );
 }
 
 fn test_vote_is_invalid(context: &Context, call: &crate::Call<TestRuntime>, error_code: u8) {
-    let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-        .with_validators()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    setup_voting_for_root_id(context);
 
-    ext.execute_with(|| {
-        setup_voting_for_root_id(context);
-
-        assert_noop!(
-            <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
-            InvalidTransaction::Custom(error_code)
-        );
-    });
+    assert_noop!(
+        <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
+        InvalidTransaction::Custom(error_code)
+    );
 }
 
 fn test_vote_is_invalid_when_root_is_not_pending_approval(error_code: u8, is_approve_root: bool) {
@@ -671,22 +646,15 @@ fn test_vote_is_invalid_root_is_not_registered_for_voting(
     call: &crate::Call<TestRuntime>,
     error_code: u8,
 ) {
-    let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-        .with_validators()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    let context = setup_context();
 
-    ext.execute_with(|| {
-        let context = setup_context();
+    setup_voting_for_root_id(&context);
+    Summary::deregister_root_for_voting(&context.root_id);
 
-        setup_voting_for_root_id(&context);
-        Summary::deregister_root_for_voting(&context.root_id);
-
-        assert_noop!(
-            <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
-            InvalidTransaction::Custom(error_code)
-        );
-    });
+    assert_noop!(
+        <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
+        InvalidTransaction::Custom(error_code)
+    );
 }
 
 fn test_vote_is_invalid_when_validator_has_voted_already(
@@ -694,37 +662,23 @@ fn test_vote_is_invalid_when_validator_has_voted_already(
     error_code: u8,
     call: &crate::Call<TestRuntime>,
 ) {
-    let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-        .with_validators()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    setup_voting_for_root_id(context);
+    Summary::record_approve_vote(&context.root_id, context.validator.account_id);
 
-    ext.execute_with(|| {
-        setup_voting_for_root_id(context);
-        Summary::record_approve_vote(&context.root_id, context.validator.account_id);
-
-        assert_noop!(
-            <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
-            InvalidTransaction::Custom(error_code)
-        );
-    });
+    assert_noop!(
+        <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
+        InvalidTransaction::Custom(error_code)
+    );
 }
 
 fn test_signature_is_wrong(context: &Context, call: &crate::Call<TestRuntime>) {
-    let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-        .with_validators()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    setup_total_ingresses(&context);
+    setup_voting_for_root_id(context);
 
-    ext.execute_with(|| {
-        setup_total_ingresses(&context);
-        setup_voting_for_root_id(context);
-
-        assert_noop!(
-            <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
-            InvalidTransaction::BadProof
-        );
-    });
+    assert_noop!(
+        <Summary as ValidateUnsigned>::validate_unsigned(TransactionSource::Local, call),
+        InvalidTransaction::BadProof
+    );
 }
 
 mod input_is_approve_root {
@@ -732,7 +686,11 @@ mod input_is_approve_root {
 
     #[test]
     fn succeeds() {
-        test_vote_is_successful(true);
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+
+        ext.execute_with(|| {
+            test_vote_is_successful(true);
+        });
     }
 
     mod fails_when {
@@ -826,7 +784,7 @@ mod input_is_approve_root {
 
             #[test]
             fn signer() {
-                let mut ext = ExtBuilder::build_default().as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
                 ext.execute_with(|| {
                     let context = setup_context();
@@ -849,7 +807,7 @@ mod input_is_approve_root {
 
             #[test]
             fn signature_context() {
-                let mut ext = ExtBuilder::build_default().as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
                 ext.execute_with(|| {
                     let context = setup_context();
@@ -870,7 +828,7 @@ mod input_is_approve_root {
 
             #[test]
             fn root_id() {
-                let mut ext = ExtBuilder::build_default().as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
                 ext.execute_with(|| {
                     let context = setup_context();
@@ -898,7 +856,7 @@ mod input_is_approve_root {
 
             #[test]
             fn approve_root() {
-                let mut ext = ExtBuilder::build_default().as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
                 ext.execute_with(|| {
                     let context = setup_context();
@@ -1000,7 +958,11 @@ mod input_is_reject_root {
 
     #[test]
     fn succeeds() {
-        test_vote_is_successful(false);
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+
+        ext.execute_with(|| {
+            test_vote_is_successful(false);
+        });
     }
 
     mod fails_when {
@@ -1093,7 +1055,7 @@ mod input_is_reject_root {
 
             #[test]
             fn signer() {
-                let mut ext = ExtBuilder::build_default().as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
                 ext.execute_with(|| {
                     let context = setup_context();
@@ -1116,7 +1078,7 @@ mod input_is_reject_root {
 
             #[test]
             fn signature_context() {
-                let mut ext = ExtBuilder::build_default().as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
                 ext.execute_with(|| {
                     let context = setup_context();
@@ -1137,7 +1099,7 @@ mod input_is_reject_root {
 
             #[test]
             fn root_id() {
-                let mut ext = ExtBuilder::build_default().as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
                 ext.execute_with(|| {
                     let context = setup_context();
@@ -1165,7 +1127,7 @@ mod input_is_reject_root {
 
             #[test]
             fn reject_root() {
-                let mut ext = ExtBuilder::build_default().as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
                 ext.execute_with(|| {
                     let context = setup_context();
