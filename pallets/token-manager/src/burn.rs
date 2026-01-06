@@ -44,11 +44,10 @@ impl<T: Config> Pallet<T> {
         // lock funds until Ethereum burn is confirmed
         T::Currency::reserve(&burn_pot, amount).map_err(|_| Error::<T>::ErrorLockingTokens)?;
 
-        // TODO: convert amount to the right type to match the contract
-        let test_amount = U256::from(100);
+        let amount_u128: u128 = amount.try_into().map_err(|_| Error::<T>::AmountOverflow)?;
 
-        let function_name: &[u8] = BridgeContractMethod::BurnTokens.as_bytes();
-        let params = vec![(b"uint256".to_vec(), format!("{}", test_amount).into_bytes())];
+        let function_name: &[u8] = BridgeContractMethod::BurnFees.as_bytes();
+        let params = vec![(b"uint128".to_vec(), format!("{}", amount_u128).into_bytes())];
 
         match T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec()) {
             Ok(tx_id) => {
