@@ -24,7 +24,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whiteli
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
 use hex_literal::hex;
 use sp_core::sr25519;
-use sp_runtime::RuntimeAppPublic;
+use sp_runtime::{RuntimeAppPublic, SaturatedConversion};
 
 use sp_application_crypto::KeyTypeId;
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
@@ -48,6 +48,26 @@ fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::RuntimeEvent, 
     // compare to the last event record
     let EventRecord { event, .. } = &events[events.len().saturating_sub(n as usize)];
     assert_eq!(event, &system_event);
+}
+
+fn assert_event_not_emitted<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    let events = frame_system::Pallet::<T>::events();
+    let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+    assert!(
+        !events.iter().any(|EventRecord { event, .. }| event == &system_event),
+        "Unexpected event was emitted"
+    );
+}
+
+fn assert_event_emitted<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    let events = frame_system::Pallet::<T>::events();
+    let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+    assert!(
+        events
+            .iter()
+            .any(|frame_system::EventRecord { event, .. }| event == &system_event),
+        "Expected event was not emitted"
+    );
 }
 
 struct Transfer<T: Config> {
@@ -361,6 +381,87 @@ benchmarks! {
     verify {
         assert_eq!(LowersDisabled::<T>::get(), true);
         assert_last_event::<T>(Event::<T>::LoweringDisabled.into());
+    }
+
+    set_burn_period {
+        let min = T::MinBurnPeriod::get();
+        let burn_period: u32 = min.saturating_add(1);
+
+        frame_system::Pallet::<T>::set_block_number(1u32.into());
+        let now = frame_system::Pallet::<T>::block_number();
+    }: _(RawOrigin::Root, burn_period)
+    verify {
+        assert_eq!(BurnPeriod::<T>::get(), burn_period);
+
+        let expected_next = now.saturating_add(burn_period.into());
+        assert_eq!(NextBurnAt::<T>::get(), expected_next);
+
+        assert_last_event::<T>(
+            Event::<T>::BurnPeriodUpdated { burn_period }.into()
+        );
+    }
+
+    on_initialize_burn_due_and_pot_has_funds_to_burn {
+        let now: BlockNumberFor<T> = 10u32.into();
+        frame_system::Pallet::<T>::set_block_number(now);
+
+        // Due now
+        NextBurnAt::<T>::put(now);
+
+        let burn_pot = Pallet::<T>::burn_pot_account();
+        let amount: BalanceOf<T> = 1_000u128.saturated_into();
+        T::Currency::deposit_creating(&burn_pot, amount);
+
+        frame_system::Pallet::<T>::reset_events();
+    }: {
+        Pallet::<T>::on_initialize(now);
+    }
+    verify {
+        assert_event_emitted::<T>(
+            Event::<T>::BurnRequested { amount }.into()
+        );
+    }
+
+    on_initialize_burn_not_due {
+        let now: BlockNumberFor<T> = 10u32.into();
+        frame_system::Pallet::<T>::set_block_number(now);
+
+        // Not due: next burn is in the future
+        NextBurnAt::<T>::put(now.saturating_add(100u32.into()));
+
+        let burn_pot = Pallet::<T>::burn_pot_account();
+        let amount: BalanceOf<T> = BalanceOf::<T>::saturated_from(1_000u128);
+        T::Currency::deposit_creating(&burn_pot, amount);
+
+        // Clear events so verify is clean
+        frame_system::Pallet::<T>::reset_events();
+    }: {
+        Pallet::<T>::on_initialize(now);
+    }
+    verify {
+        assert_event_not_emitted::<T>(
+            Event::<T>::BurnRequested { amount }.into()
+        );
+    }
+
+    on_initialize_burn_due_but_pot_empty {
+        let now: BlockNumberFor<T> = 10u32.into();
+        frame_system::Pallet::<T>::set_block_number(now);
+
+        // Due now
+        NextBurnAt::<T>::put(now);
+
+        frame_system::Pallet::<T>::reset_events();
+
+        // dummy amount
+        let amount: BalanceOf<T> = 1u128.saturated_into();
+    }: {
+        Pallet::<T>::on_initialize(now);
+    }
+    verify {
+        assert_event_not_emitted::<T>(
+            Event::<T>::BurnRequested { amount }.into()
+        );
     }
 }
 
