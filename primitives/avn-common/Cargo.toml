@@ -3,30 +3,30 @@ name = "sp-avn-common"
 description = "Common types for avn pallets"
 license = "GPL-3.0"
 
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
-rust-version = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 derive_more = "0.99.2"
-hex = { workspace = true }
+hex.workspace = true
 hex-literal = { version = "0.4.1", default-features = false }
 impl-trait-for-tuples = "0.2.2"
 codec = { workspace = true, features = ["derive", "max-encoded-len"]}
-scale-info = { workspace = true }
-log = { workspace = true }
+scale-info.workspace = true
+log.workspace = true
 strum = { version = "0.26.2", features = ["derive"], default-features = false }
 
-sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", features = ["serde"]}
-sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
+sp-core.workspace = true
+sp-std.workspace = true
+sp-runtime = { workspace = true, features = ["serde"]}
+sp-io.workspace = true
 
 libsecp256k1 = { version = "0.7.0", default-features = false, features = [
 	"hmac",

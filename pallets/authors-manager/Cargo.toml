@@ -3,19 +3,19 @@ name = "pallet-authors-manager"
 description = "Pallet to manage authors of the chain"
 license = "GPL-3.0"
 
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
-rust-version = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
-log = { workspace = true }
+log.workspace = true
 codec = { workspace = true, features = ["derive"] }
-scale-info = { workspace = true }
+scale-info.workspace = true
 serde = { workspace = true, optional = true }
-hex = { workspace = true }
+hex.workspace = true
 hex-literal = { version = "0.4.1", default-features = false }
 libsecp256k1 = { version = "0.7.0", default-features = false, features = [
 	"hmac","static-context"
@@ -23,33 +23,29 @@ libsecp256k1 = { version = "0.7.0", default-features = false, features = [
 rand = { version = "0.8.5", features = ["std_rng"], default-features = false, optional = true }
 sha3 = { version = "0.8", default-features = false, optional = true }
 
-sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
-pallet-avn = { default-features = false, path = "../avn" }
+sp-avn-common.workspace = true
+pallet-avn.workspace = true
 
-sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
+sp-std.workspace = true
+sp-runtime.workspace = true
+sp-core.workspace = true
 
-frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-pallet-session = { features = [
-	"historical",
-], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", default-features = false }
-pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", default-features = false }
+frame-support.workspace = true
+frame-system.workspace = true
+pallet-session = { workspace = true, features = ["historical"] }
+pallet-timestamp.workspace = true
 
 # Optional imports for benchmarking
-frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", optional = true }
+frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", features=["insecure_zero_ed"] }
+sp-io = { default-features = true, workspace = true }
+sp-application-crypto.workspace = true
+pallet-balances = { workspace = true, default-features = true }
 parking_lot = { version = "0.12.0" }
-sp-state-machine = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-
-substrate-test-utils = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
-
+sp-state-machine.workspace = true
+substrate-test-utils.workspace = true
+pallet-eth-bridge = { workspace = true, default-features = true }
 
 [features]
 default = ["std", "pallet-session/historical"]
