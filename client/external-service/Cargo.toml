@@ -2,11 +2,11 @@
 name = "external-service"
 license = "GPL-3.0"
 
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
 # third-party dependencies
@@ -20,10 +20,10 @@ web3 = { version = "0.19.0", default-features = false, features = [
     "signing",
 ] }
 
-jsonrpsee = { workspace = true }
-futures = { workspace = true }
-anyhow = { workspace = true }
-jsonrpc-core = { workspace = true }
+jsonrpsee.workspace = true
+futures.workspace = true
+anyhow.workspace = true
+jsonrpc-core.workspace = true
 
 # This version must be compatible with web3
 tokio = { version = "1.19", features = ["sync"] }
@@ -44,22 +44,22 @@ web3Secp256k1 = { package = "secp256k1", version = "0.27.0", features = [
 # This needs to be the same version as the one used in web3, parity-scale-codec and ethereum-transactions pallet
 ethereum-types = "0.14.1"
 
-pallet-eth-bridge-runtime-api = { path = "../../pallets/eth-bridge/runtime-api"}
-sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
+pallet-eth-bridge-runtime-api = { default-features = true, workspace = true }
+sp-block-builder = { default-features = true, workspace = true }
+sp-blockchain = { default-features = true, workspace = true }
 
 # primitives
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-avn-common = { path = "../../primitives/avn-common"}
-sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
+sp-avn-common = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }
+sp-keystore = { default-features = true, workspace = true }
+sp-api = { default-features = true, workspace = true }
 
 # client dependencies
-sc-keystore = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sc-client-db = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
+sc-keystore = { default-features = true, workspace = true }
+sc-client-api = { default-features = true, workspace = true }
+sc-client-db = { default-features = true, workspace = true }
+sc-transaction-pool-api = { default-features = true, workspace = true }
 
-node-primitives = { path = "../../node/primitives/" }
-client-extrinsic-utils = { path = "../extrinsic-utils" }
+node-primitives = { default-features = true, workspace = true }
+client-extrinsic-utils.workspace = true
