@@ -38,10 +38,10 @@ use sp_avn_common::{
     bounds::ProcessingBatchBound,
     event_discovery::EthereumEventsFilterTrait,
     event_types::{
-        AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Challenge, ChallengeReason,
-        CheckResult, EthEventCheckResult, EthEventId, EventData, LiftedData, NftCancelListingData,
-        NftEndBatchListingData, NftMintData, NftTransferToData, ProcessedEventHandler, ValidEvents,
-        Validator,
+        AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, AvtSupplyUpdatedData,
+        Challenge, ChallengeReason, CheckResult, EthEventCheckResult, EthEventId, EventData,
+        LiftedData, NftCancelListingData, NftEndBatchListingData, NftMintData, NftTransferToData,
+        ProcessedEventHandler, ValidEvents, Validator,
     },
     verify_signature, EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
     IngressCounter, InnerCallValidator, Proof,
@@ -1128,6 +1128,12 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::EventParsingFailed
             })?;
             return Ok(EventData::LogLowerClaimed(event_data))
+        } else if event_id.signature == ValidEvents::AvtSupplyUpdated.signature() {
+            let event_data = <AvtSupplyUpdatedData>::parse_bytes(data, topics).map_err(|e| {
+                log::warn!("Error parsing T1 LogAvtSupplyUpdated Event: {:#?}", e);
+                Error::<T>::EventParsingFailed
+            })?;
+            return Ok(EventData::LogAvtSupplyUpdated(event_data))
         } else {
             return Err(Error::<T>::UnrecognizedEventSignature)
         }
