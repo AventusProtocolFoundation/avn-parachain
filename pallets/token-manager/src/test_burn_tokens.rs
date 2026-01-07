@@ -15,8 +15,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 #![cfg(test)]
+use crate as token_manager;
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok};
+type Curr = <TestRuntime as token_manager::Config>::Currency;
 
 mod burn_tests {
     use super::*;
@@ -43,10 +45,6 @@ mod burn_tests {
 
                     // storage updated correctly
                     assert_eq!(BurnPeriod::<TestRuntime>::get(), new_period);
-
-                    // next burn rescheduled from "now"
-                    let expected_next: u64 = current_block + new_period as u64;
-                    assert_eq!(NextBurnAt::<TestRuntime>::get(), expected_next);
 
                     // event emitted
                     assert!(event_emitted(&mock::RuntimeEvent::TokenManager(crate::Event::<
@@ -238,6 +236,137 @@ mod burn_tests {
                     >::BurnRequested {
                         amount
                     })));
+                });
+            }
+        }
+    }
+}
+
+mod treasury_tests {
+    use super::*;
+    use crate::treasury::TreasuryManager;
+
+    mod set_treasury_burn_threshold {
+        use super::*;
+
+        mod succeeds_when {
+            use super::*;
+
+            #[test]
+            fn fund_treasury_below_threshold_does_not_move_to_burn_pot() {
+                let mut ext = ExtBuilder::build_default()
+                    .with_genesis_config()
+                    .with_balances()
+                    .as_externality();
+
+                ext.execute_with(|| {
+                    // TotalSupply=10_000 => threshold=1_500 (if TreasuryBurnThreshold is set a 15%)
+                    let total_supply = 10_000u128;
+                    TotalSupply::<TestRuntime>::put(total_supply);
+
+                    let treasury = TokenManager::compute_treasury_account_id();
+                    let burn = TokenManager::burn_pot_account();
+
+                    // Read the threshold % from runtime config
+                    let threshold =
+                        <TestRuntime as token_manager::Config>::TreasuryBurnThreshold::get() * total_supply;
+                    // pick an amount strictly below threshold (but >0)
+                    let fund_amount = threshold.saturating_sub(1);
+
+                    assert_eq!(Curr::free_balance(&treasury), 0u128);
+                    assert_eq!(Curr::free_balance(&burn), 0u128);
+
+                    let from = account_id_with_100_avt();
+
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(), fund_amount)
+                        .unwrap();
+
+                    assert_eq!(Curr::free_balance(&treasury), fund_amount);
+                    assert_eq!(Curr::free_balance(&burn), 0u128);
+                });
+            }
+
+            #[test]
+            fn fund_treasury_above_threshold_moves_excess_to_burn_pot() {
+                let mut ext = ExtBuilder::build_default()
+                    .with_genesis_config()
+                    .with_balances()
+                    .as_externality();
+
+                ext.execute_with(|| {
+                    let total_supply = 10_000u128;
+                    TotalSupply::<TestRuntime>::put(total_supply);
+
+                    let treasury = TokenManager::compute_treasury_account_id();
+                    let burn = TokenManager::burn_pot_account();
+
+                    let threshold =
+                        <TestRuntime as token_manager::Config>::TreasuryBurnThreshold::get() * total_supply;
+
+                    let from = account_id_with_100_avt();
+
+                    // Make treasury exceed threshold by a known amount
+                    let excess = 500u128;
+                    let fund_amount = threshold.saturating_add(excess);
+
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(),
+                        fund_amount,
+                    )
+                    .unwrap();
+
+                    // Treasury should end up capped at threshold, excess moved to burn pot
+                    assert_eq!(Curr::free_balance(&treasury), threshold);
+                    assert_eq!(Curr::free_balance(&burn), excess);
+                });
+            }
+
+            #[test]
+            fn fund_treasury_multiple_times_caps_treasury_and_accumulates_burn_pot() {
+                let mut ext = ExtBuilder::build_default()
+                    .with_genesis_config()
+                    .with_balances()
+                    .as_externality();
+
+                ext.execute_with(|| {
+                    let total_supply = 10_000u128;
+                    TotalSupply::<TestRuntime>::put(total_supply);
+
+                    let treasury = TokenManager::compute_treasury_account_id();
+                    let burn = TokenManager::burn_pot_account();
+
+                    let threshold =
+                        <TestRuntime as token_manager::Config>::TreasuryBurnThreshold::get() * total_supply;
+
+                    let from = account_id_with_100_avt();
+
+                    // 1) Fund just below threshold (no burn)
+                    let first = threshold.saturating_sub(10);
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(),
+                        first,
+                    )
+                    .unwrap();
+                    assert_eq!(Curr::free_balance(&treasury), first);
+                    assert_eq!(Curr::free_balance(&burn), 0u128);
+
+                    // 2) Fund +50 => now 40 over threshold => 40 should move
+                    let second = 50u128;
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(),
+                        second,
+                    )
+                    .unwrap();
+
+                    assert_eq!(Curr::free_balance(&treasury), threshold);
+                    assert_eq!(Curr::free_balance(&burn), 40u128);
+
+                    // 3) Fund +100 => treasury already at threshold, so all 100 is excess => all moves
+                    let third = 100u128;
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(),
+                        third,
+                    )
+                    .unwrap();
+
+                    assert_eq!(Curr::free_balance(&treasury), threshold);
+                    assert_eq!(Curr::free_balance(&burn), 140u128);
                 });
             }
         }

@@ -54,15 +54,12 @@ use sp_avn_common::{
 use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::{
-        AccountIdConversion, AtLeast32Bit, CheckedAdd, Dispatchable, Hash, IdentifyAccount, Member,
-        Saturating, Verify, Zero,
-    },
+    traits::{AtLeast32Bit, CheckedAdd, Dispatchable, Hash, IdentifyAccount, Member, Verify, Zero},
     Perbill,
 };
 use sp_std::prelude::*;
 
-type BalanceOf<T> =
+pub type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
@@ -76,6 +73,7 @@ mod benchmarking;
 mod burn;
 pub mod default_weights;
 pub mod migration;
+mod treasury;
 pub use default_weights::WeightInfo;
 
 #[cfg(test)]
@@ -99,6 +97,7 @@ mod test_proxying_signed_lower;
 #[cfg(test)]
 mod test_proxying_signed_transfer;
 
+pub const DEFAULT_TREASURY_BURN_THRESHOLD_PERCENT: u32 = 15;
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
 pub const PALLET_ID: &'static [u8; 13] = b"token_manager";
@@ -169,6 +168,9 @@ pub mod pallet {
         /// Minimum Burn Refresh range
         #[pallet::constant]
         type MinBurnPeriod: Get<u32>;
+        /// Minimum allowed treasury burn threshold
+        #[pallet::constant]
+        type TreasuryBurnThreshold: Get<Perbill>;
         /// Flag to enable burn mechanism
         #[pallet::constant]
         type BurnEnabled: Get<bool>;
@@ -275,6 +277,13 @@ pub mod pallet {
             tx_id: u32,
             amount: BalanceOf<T>,
         },
+        TreasuryExcessSentToBurnPot {
+            amount: BalanceOf<T>,
+        },
+        TreasuryFunded {
+            from: T::AccountId,
+            amount: BalanceOf<T>,
+        },
     }
 
     #[pallet::error]
@@ -374,7 +383,8 @@ pub mod pallet {
     pub type BurnPeriod<T> = StorageValue<_, u32, ValueQuery, DefaultBurnRefreshRange<T>>;
 
     #[pallet::storage]
-    pub type BurnEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
+    #[pallet::getter(fn total_supply)]
+    pub type TotalSupply<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::type_value]
     pub fn DefaultBurnRefreshRange<T: Config>() -> u32 {
@@ -388,6 +398,7 @@ pub mod pallet {
         pub avt_token_contract: H160,
         pub lower_schedule_period: BlockNumberFor<T>,
         pub balances: Vec<(H160, T::AccountId, u128)>,
+        pub treasury_burn_threshold: Perbill,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -398,6 +409,9 @@ pub mod pallet {
                 avt_token_contract: H160::zero(),
                 lower_schedule_period: BlockNumberFor::<T>::zero(),
                 balances: vec![],
+                treasury_burn_threshold: Perbill::from_percent(
+                    DEFAULT_TREASURY_BURN_THRESHOLD_PERCENT,
+                ),
             }
         }
     }
@@ -489,18 +503,8 @@ pub mod pallet {
             amount: BalanceOf<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            ensure!(amount != BalanceOf::<T>::zero(), Error::<T>::AmountIsZero);
 
-            <T as pallet::Config>::Currency::transfer(
-                &Self::compute_treasury_account_id(),
-                &recipient,
-                amount,
-                ExistenceRequirement::KeepAlive,
-            )?;
-
-            Self::deposit_event(Event::<T>::AvtTransferredFromTreasury { recipient, amount });
-
-            Ok(())
+            Self::transfer_from_treasury_to(&recipient, amount)
         }
 
         /// Lower an amount of token from tier2 to tier1
@@ -1075,20 +1079,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::AvtLowerClaimed { lower_id: data.lower_id });
 
         Ok(())
-    }
-
-    /// The account ID of the AvN treasury.
-    /// This actually does computation. If you need to keep using it, then make sure you cache
-    /// the value and only call this once.
-    pub fn compute_treasury_account_id() -> T::AccountId {
-        T::AvnTreasuryPotId::get().into_account_truncating()
-    }
-
-    /// The total amount of funds stored in this pallet
-    pub fn treasury_balance() -> BalanceOf<T> {
-        // Must never be less than 0 but better be safe.
-        <T as pallet::Config>::Currency::free_balance(&Self::compute_treasury_account_id())
-            .saturating_sub(<T as pallet::Config>::Currency::minimum_balance())
     }
 
     fn schedule_lower(
