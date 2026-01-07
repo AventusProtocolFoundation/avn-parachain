@@ -427,6 +427,7 @@ impl ExtBuilder {
                 .enumerate()
                 .map(|(i, v)| (v, v, UintAuthorityId((i as u32).into())))
                 .collect(),
+            ..Default::default()
         }
         .assimilate_storage(&mut self.storage);
 
@@ -450,7 +451,7 @@ impl ExtBuilder {
         ];
         balances.append(&mut genesis_collators().into_iter().map(|c| (c, 1000)).collect());
 
-        let _ = pallet_balances::GenesisConfig::<TestRuntime> { balances }
+        let _ = pallet_balances::GenesisConfig::<TestRuntime> { balances, ..Default::default() }
             .assimilate_storage(&mut self.storage);
         self
     }

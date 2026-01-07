@@ -31,7 +31,7 @@ sp-staking.workspace = true
 frame-support.workspace = true
 frame-system.workspace = true
 pallet-session = { workspace = true, features = ["historical"] }
-hex-literal = { version = "0.4.1", default-features = false }
+hex-literal.workspace = true
 libsecp256k1 = { version = "0.7.0", default-features = false, features = [
 	"hmac","static-context"
 ], optional = true }
@@ -45,7 +45,7 @@ frame-benchmarking = { optional = true, workspace = true }
 [dev-dependencies]
 frame-election-provider-support = { default-features = true, workspace = true }
 pallet-timestamp = { default-features = true, workspace = true }
-parking_lot = { version = "0.12.0" }
+parking_lot.workspace = true
 pallet-balances = { workspace = true, features=["insecure_zero_ed"] }
 sp-state-machine = { default-features = true, workspace = true }
 pallet-avn-proxy = { workspace = true, default-features = true }

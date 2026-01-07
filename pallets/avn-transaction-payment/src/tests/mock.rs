@@ -106,7 +106,7 @@ impl
         frame_support::traits::fungible::Credit<AccountId, pallet_balances::Pallet<TestRuntime>>,
     > for DealWithFees
 {
-    fn on_unbalanceds<B>(
+    fn on_unbalanceds(
         mut fees_then_tips: impl Iterator<
             Item = frame_support::traits::fungible::Credit<
                 AccountId,

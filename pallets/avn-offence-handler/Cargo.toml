@@ -28,7 +28,7 @@ frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
 serde.workspace = true
-parking_lot = { version = "0.12.0" }
+parking_lot.workspace = true
 sp-io.workspace = true
 sp-state-machine = { default-features = true, workspace = true }
 sp-avn-common = { workspace = true, default-features = true, features=["test-utils"] }

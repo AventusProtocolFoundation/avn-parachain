@@ -728,6 +728,7 @@ impl ExtBuilder {
                 .enumerate()
                 .map(|(i, v)| (v, v, UintAuthorityId((i as u32).into())))
                 .collect(),
+            ..Default::default()
         }
         .assimilate_storage(&mut self.storage);
         self

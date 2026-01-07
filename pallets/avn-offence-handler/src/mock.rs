@@ -123,6 +123,7 @@ impl ExtBuilder {
         });
         let _ = session::GenesisConfig::<TestRuntime> {
             keys: validators.into_iter().map(|v| (v, v, UintAuthorityId(v))).collect(),
+            ..Default::default()
         }
         .assimilate_storage(&mut self.storage);
         self
