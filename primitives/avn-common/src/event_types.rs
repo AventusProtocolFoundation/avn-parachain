@@ -70,6 +70,13 @@ pub enum Error {
     LiftedToPredictionMarketEventBadDataLength,
     LiftedToPredictionMarketEventWrongTopicCount,
     LiftedToPredictionMarketEventBadTopicLength,
+
+    AvtSupplyUpdatedEventShouldOnlyContainTopics,
+    AvtSupplyUpdatedEventWrongTopicCount,
+    AvtSupplyUpdatedEventBadTopicLength,
+    AvtSupplyUpdatedEventOldSupplyOverflow,
+    AvtSupplyUpdatedEventNewSupplyOverflow,
+    AvtSupplyUpdatedEventT2TxIdConversion,
 }
 
 #[derive(
@@ -107,6 +114,8 @@ pub enum ValidEvents {
     LiftedToPredictionMarket,
     /// Secondary event emitted by the ERC-20 token contract.
     Erc20DirectTransfer,
+    // AVT Supply Updated event
+    AvtSupplyUpdated,
 }
 
 impl ValidEvents {
@@ -156,6 +165,11 @@ impl ValidEvents {
             // hex string of Keccak-256 for Transfer(address,address,uint256)
             ValidEvents::Erc20DirectTransfer =>
                 H256(hex!("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")),
+
+            // ✅ NEW: keccak256("LogAvtSupplyUpdated(uint256,uint256,uint32)")
+            // ⚠️ Replace this placeholder with the real signature hash
+            ValidEvents::AvtSupplyUpdated =>
+                H256(hex!("0000000000000000000000000000000000000000000000000000000000000000")),
         }
     }
 
@@ -718,6 +732,79 @@ impl AvtLowerClaimedData {
     }
 }
 
+// T1 Event definition:
+// event LogAvtSupplyUpdated(uint256 indexed oldSupply, uint256 indexed newSupply, uint32 indexed
+// t2TxId);
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct AvtSupplyUpdatedData {
+    pub old_supply: u128,
+    pub new_supply: u128,
+    pub t2_tx_id: u32,
+}
+
+impl AvtSupplyUpdatedData {
+    const TOPIC_OLD_SUPPLY: usize = 1;
+    const TOPIC_NEW_SUPPLY: usize = 2;
+    const TOPIC_T2_TX_ID: usize = 3;
+
+    pub fn is_valid(&self) -> bool {
+        // ✅ Supply updates are valid as long as new != 0 and t2_tx_id != 0
+        self.new_supply > 0u128 && self.t2_tx_id > 0u32
+    }
+
+    pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
+        // Structure:
+        // data -> empty
+        // topics[0] -> event signature
+        // topics[1] -> oldSupply (uint256)
+        // topics[2] -> newSupply (uint256)
+        // topics[3] -> t2TxId (uint32 encoded in uint256 slot)
+
+        if data.is_some() {
+            return Err(Error::AvtSupplyUpdatedEventShouldOnlyContainTopics)
+        }
+
+        if topics.len() != 4 {
+            return Err(Error::AvtSupplyUpdatedEventWrongTopicCount)
+        }
+
+        if topics[Self::TOPIC_OLD_SUPPLY].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_NEW_SUPPLY].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_T2_TX_ID].len() != WORD_LENGTH
+        {
+            return Err(Error::AvtSupplyUpdatedEventBadTopicLength)
+        }
+
+        // oldSupply and newSupply are uint256 → we only support up to u128 (like LiftedData)
+        if topics[Self::TOPIC_OLD_SUPPLY][0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
+            return Err(Error::AvtSupplyUpdatedEventOldSupplyOverflow)
+        }
+        if topics[Self::TOPIC_NEW_SUPPLY][0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
+            return Err(Error::AvtSupplyUpdatedEventNewSupplyOverflow)
+        }
+
+        let old_supply = u128::from_be_bytes(
+            topics[Self::TOPIC_OLD_SUPPLY][HALF_WORD_LENGTH..WORD_LENGTH]
+                .try_into()
+                .expect("Slice is the correct size"),
+        );
+
+        let new_supply = u128::from_be_bytes(
+            topics[Self::TOPIC_NEW_SUPPLY][HALF_WORD_LENGTH..WORD_LENGTH]
+                .try_into()
+                .expect("Slice is the correct size"),
+        );
+
+        let t2_tx_id = u32::from_be_bytes(
+            topics[Self::TOPIC_T2_TX_ID][TWENTY_EIGHT_BYTES..WORD_LENGTH]
+                .try_into()
+                .map_err(|_| Error::AvtSupplyUpdatedEventT2TxIdConversion)?,
+        );
+
+        Ok(AvtSupplyUpdatedData { old_supply, new_supply, t2_tx_id })
+    }
+}
+
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub enum EventData {
     LogAddedValidator(AddedValidatorData),
@@ -731,6 +818,7 @@ pub enum EventData {
     LogLowerClaimed(AvtLowerClaimedData),
     LogLiftedToPredictionMarket(LiftedData),
     LogErc20Transfer(LiftedData),
+    LogAvtSupplyUpdated(AvtSupplyUpdatedData),
 }
 
 impl EventData {
@@ -747,6 +835,7 @@ impl EventData {
             EventData::LogAvtGrowthLifted(d) => d.is_valid(),
             EventData::LogLiftedToPredictionMarket(d) => d.is_valid(),
             EventData::LogErc20Transfer(d) => d.is_valid(),
+            EventData::LogAvtSupplyUpdated(d) => d.is_valid(),
             EventData::EmptyEvent => true,
             _ => false,
         }

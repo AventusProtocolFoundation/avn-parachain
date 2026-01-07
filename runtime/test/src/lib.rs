@@ -609,6 +609,7 @@ parameter_types! {
     pub const AvnInstanceId: u8 = 2u8;
     pub const MinBurnPeriod: u32 = 100;
     pub const BurnEnabled: bool = true;
+    pub const TreasuryBurnThreshold: Perbill = Perbill::from_percent(15);
 }
 
 pub type EthSummary = pallet_summary::Instance1;
@@ -670,6 +671,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type BridgeInterface = EthBridge;
     type MinBurnPeriod = MinBurnPeriod;
     type BurnEnabled = BurnEnabled;
+    type TreasuryBurnThreshold = TreasuryBurnThreshold;
 }
 
 impl pallet_nft_manager::Config for Runtime {
