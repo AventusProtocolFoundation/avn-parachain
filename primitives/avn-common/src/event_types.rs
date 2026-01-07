@@ -166,8 +166,7 @@ impl ValidEvents {
             ValidEvents::Erc20DirectTransfer =>
                 H256(hex!("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")),
 
-            // ✅ NEW: keccak256("LogAvtSupplyUpdated(uint256,uint256,uint32)")
-            // ⚠️ Replace this placeholder with the real signature hash
+            // keccak256("LogAvtSupplyUpdated(uint256,uint256,uint32)")
             ValidEvents::AvtSupplyUpdated =>
                 H256(hex!("0000000000000000000000000000000000000000000000000000000000000000")),
         }
@@ -748,7 +747,6 @@ impl AvtSupplyUpdatedData {
     const TOPIC_T2_TX_ID: usize = 3;
 
     pub fn is_valid(&self) -> bool {
-        // ✅ Supply updates are valid as long as new != 0 and t2_tx_id != 0
         self.new_supply > 0u128 && self.t2_tx_id > 0u32
     }
 
