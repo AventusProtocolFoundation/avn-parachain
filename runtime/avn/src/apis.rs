@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 // External crates imports
+use alloc::vec::Vec;
 use frame_support::{
     genesis_builder_helper::{build_state, get_preset},
     weights::Weight,
@@ -43,12 +44,28 @@ use crate::{
 };
 
 use codec::Encode;
-use sp_std::{collections::btree_map::BTreeMap, prelude::Vec};
+use sp_std::collections::btree_map::BTreeMap;
+
+// we move some impls outside so we can easily use them with `docify`.
+impl Runtime {
+    #[docify::export]
+    fn impl_slot_duration() -> sp_consensus_aura::SlotDuration {
+        sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+    }
+
+    #[docify::export]
+    fn impl_can_build_upon(
+        included_hash: <Block as BlockT>::Hash,
+        slot: cumulus_primitives_aura::Slot,
+    ) -> bool {
+        ConsensusHook::can_build_upon(included_hash, slot)
+    }
+}
 
 impl_runtime_apis! {
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
         fn slot_duration() -> sp_consensus_aura::SlotDuration {
-            sp_consensus_aura::SlotDuration::from_millis(SLOT_DURATION)
+            Runtime::impl_slot_duration()
         }
 
         fn authorities() -> Vec<AuraId> {
@@ -61,7 +78,7 @@ impl_runtime_apis! {
                     included_hash: <Block as BlockT>::Hash,
                     slot: cumulus_primitives_aura::Slot,
             ) -> bool {
-                    ConsensusHook::can_build_upon(included_hash, slot)
+                Runtime::impl_can_build_upon(included_hash, slot)
             }
     }
 
@@ -88,7 +105,7 @@ impl_runtime_apis! {
             Runtime::metadata_at_version(version)
         }
 
-        fn metadata_versions() -> sp_std::vec::Vec<u32> {
+        fn metadata_versions() -> Vec<u32> {
             Runtime::metadata_versions()
         }
     }
@@ -312,7 +329,7 @@ impl_runtime_apis! {
 
             use frame_system_benchmarking::Pallet as SystemBench;
             impl frame_system_benchmarking::Config for Runtime {
-                fn setup_set_code_requirements(code: &sp_std::vec::Vec<u8>) -> Result<(), BenchmarkError> {
+                fn setup_set_code_requirements(code: &Vec<u8>) -> Result<(), BenchmarkError> {
                     ParachainSystem::initialize_for_set_code_benchmark(code.len() as u32);
                     Ok(())
                 }

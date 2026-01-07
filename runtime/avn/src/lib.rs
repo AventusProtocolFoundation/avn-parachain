@@ -6,6 +6,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+extern crate alloc;
+
 pub mod apis;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
@@ -139,14 +141,22 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     state_version: 1,
 };
 
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
+#[docify::export]
+mod block_times {
+    use runtime_common::constants::time::MILLISECS_PER_BLOCK;
+    /// This determines the average expected block time that we are targeting. Blocks will be
+    /// produced at a minimum duration defined by `SLOT_DURATION`. `SLOT_DURATION` is picked up by
+    /// `pallet_timestamp` which is in turn picked up by `pallet_aura` to implement `fn
+    /// slot_duration()`.
+    ///
+    /// Change this to adjust the block time.
+    pub const RUNTIME_MILLISECS_PER_BLOCK: u64 = MILLISECS_PER_BLOCK;
 
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+    // NOTE: Currently it is not possible to change the slot duration after the chain has started.
+    // Attempting to do so will brick block production.
+    pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+}
+pub use block_times::*;
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
 pub const EXISTENTIAL_DEPOSIT: Balance = 0;
@@ -159,6 +169,7 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
 /// `Operational` extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
+#[docify::export(max_block_weight)]
 /// We allow for 0.5 of a second of compute with a 12 second average block time.
 // TODO set for async backing We allow for 2 seconds of compute with a 6 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
@@ -167,15 +178,21 @@ const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
     cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
-/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-// TODO Set this value to 3 when enabling asynchronous backing
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
-/// How many parachain blocks are processed by the relay chain per parent. Limits the
-/// number of blocks authored per slot.
-const BLOCK_PROCESSING_VELOCITY: u32 = 1;
-/// Relay chain slot duration, in milliseconds.
-const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+#[docify::export]
+mod async_backing_params {
+    /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+    /// into the relay chain.
+    // TODO Set this value to 3 when enabling asynchronous backing
+    pub(crate) const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
+    /// How many parachain blocks are processed by the relay chain per parent. Limits the
+    /// number of blocks authored per slot.
+    pub(crate) const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+    /// Relay chain slot duration, in milliseconds.
+    pub(crate) const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
+}
+pub(crate) use async_backing_params::*;
+
+#[docify::export]
 
 /// Aura consensus hook
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -274,6 +291,7 @@ construct_runtime!(
     }
 );
 
+#[docify::export(register_validate_block)]
 cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
