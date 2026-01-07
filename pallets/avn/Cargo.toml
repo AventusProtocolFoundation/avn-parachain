@@ -30,8 +30,8 @@ sp-avn-common.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-hex-literal = { version = "0.4.1", default-features = false }
-parking_lot = { version = "0.12.0" }
+hex-literal.workspace = true
+parking_lot.workspace = true
 pallet-timestamp = { default-features = true, workspace = true }
 pallet-balances = { workspace = true, default-features = true }
 sp-state-machine = { default-features = true, workspace = true }

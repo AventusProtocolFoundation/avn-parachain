@@ -14,7 +14,7 @@ log.workspace = true
 serde = { workspace = true, optional = true }
 rand = { version = "0.8.5", default-features = false }
 hex.workspace = true
-hex-literal = { version = "0.4.1", default-features = false }
+hex-literal.workspace = true
 codec = { workspace = true, features = ["derive"] }
 
 # Substrate
@@ -45,7 +45,7 @@ pallet-timestamp.workspace = true
 sp-keystore = { default-features = true, workspace = true }
 pallet-avn-proxy = { default-features = false, workspace = true }
 pallet-eth-bridge = { default-features = false, workspace = true }
-parking_lot = { version = "0.12.0" }
+parking_lot.workspace = true
 assert_matches = "1.3.0"
 sp-avn-common = { workspace = true, default-features = true, features=["test-utils"] }
 

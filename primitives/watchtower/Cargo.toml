@@ -19,7 +19,7 @@ codec = { workspace = true, features = ["derive", "max-encoded-len"]}
 scale-info.workspace = true
 log.workspace = true
 derive_more = "0.99.2"
-hex-literal = { version = "0.4.1", default-features = false }
+hex-literal.workspace = true
 impl-trait-for-tuples = "0.2.2"
 
 sp-core.workspace = true

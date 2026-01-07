@@ -12,7 +12,7 @@ rust-version.workspace = true
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
-hex-literal = { version = "0.4.1", default-features = false }
+hex-literal.workspace = true
 simple-json2 = { version = "0.1.2", default-features = false, git = 'https://github.com/Aventus-Network-Services/simple-json2', branch = "fixed_dependencies_1.10" }
 hex.workspace = true
 impl-trait-for-tuples = "0.2.2"
@@ -33,7 +33,7 @@ pallet-avn.workspace = true
 serde = { features = ["derive"], workspace = true, optional = true }
 
 # Optional imports for benchmarking
-parking_lot = { version = "0.12.0", default-features = false}
+parking_lot.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]

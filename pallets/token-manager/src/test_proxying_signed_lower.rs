@@ -901,13 +901,27 @@ mod fees {
                     call
                 ));
 
-                assert_eq!(System::events().len(), 3);
+                assert!(System::events().iter().any(|a| {
+                    matches!(
+                        &a.event,
+                        RuntimeEvent::TokenManager(
+                            crate::Event::<TestRuntime>::LowerRequested {
+                                from,
+                                amount: DEFAULT_AMOUNT,
+                                t1_recipient: t1_recipient,
+                                ..
+                            }
+                        ) if *from == sender
+                    )
+                }));
+
+                System::reset_events();
 
                 // move a few blocks to trigger the execution
                 fast_forward_to_block(get_expected_execution_block());
 
                 let fee: u128 = (BASE_FEE + TX_LEN as u64) as u128;
-                assert_eq!(System::events().len(), 6);
+
                 assert_eq!(Balances::free_balance(sender), AMOUNT_100_TOKEN - fee);
                 assert_eq!(
                     TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),

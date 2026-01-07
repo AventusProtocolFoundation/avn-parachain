@@ -13,7 +13,7 @@ rust-version.workspace = true
 codec = { workspace = true, features = ["derive"] }
 ethabi = { default-features = false, git = "https://github.com/Aventus-Network-Services/ethabi.git", branch = "v13.0.0-no-std-avn" }
 hex.workspace = true
-hex-literal = { version = "0.4.1", default-features = false }
+hex-literal.workspace = true
 rand = { version = "0.8.5", default-features = false }
 scale-info.workspace = true
 log.workspace = true
@@ -37,7 +37,7 @@ pallet-avn.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
-parking_lot = { version = "0.12.0" }
+parking_lot.workspace = true
 sp-state-machine = { default-features = true, workspace = true }
 sp-avn-common = { workspace = true, default-features = true, features=["test-utils"] }
 alloy-sol-types = "1.1.2"

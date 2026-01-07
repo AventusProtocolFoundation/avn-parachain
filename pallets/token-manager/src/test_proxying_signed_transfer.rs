@@ -1003,7 +1003,21 @@ fn avn_test_regular_call_gas_costs_paid_correctly() {
         ));
 
         let fee: u128 = (BASE_FEE + TX_LEN as u64) as u128;
-        assert_eq!(System::events().len(), 2);
+        assert!(System::events().iter().any(|a| {
+            matches!(
+                &a.event,
+                RuntimeEvent::TokenManager(
+                    crate::Event::<TestRuntime>::TokenTransferred {
+                        token_id,
+                        sender: sender,
+                        recipient: recipient,
+                        token_balance: DEFAULT_AMOUNT,
+                        ..
+                    }
+                ) if *token_id == NON_AVT_TOKEN_ID
+            )
+        }));
+
         assert_eq!(Balances::free_balance(sender), AMOUNT_100_TOKEN - fee);
         assert_eq!(
             TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),

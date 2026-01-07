@@ -260,7 +260,7 @@ pub fn disable_growth() {
 
 pub struct DealWithFees;
 impl OnUnbalanced<pallet_balances::NegativeImbalance<Test>> for DealWithFees {
-    fn on_unbalanceds<B>(
+    fn on_unbalanceds(
         mut fees_then_tips: impl Iterator<Item = pallet_balances::NegativeImbalance<Test>>,
     ) {
         if let Some(mut fees) = fees_then_tips.next() {
