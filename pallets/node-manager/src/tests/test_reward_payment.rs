@@ -946,11 +946,12 @@ mod reward {
             // Native reward is zero, but the node earned a non-zero share.
             assert_ok!(NodeManager::pay_reward(&period, node, &node_info, 0u128, share));
 
-            // The app-chain hook must still have been notified for the node's share.
+            // The app-chain hook must still have been notified for the node's share, and it must
+            // receive the node's real serial number.
             ON_REWARD_PAID_CALLS.with(|c| {
                 let calls = c.borrow();
                 assert_eq!(calls.len(), 1);
-                assert_eq!(calls[0], (period, node, share));
+                assert_eq!(calls[0], (period, node, node_info.serial_number, share));
             });
         });
     }

@@ -8,7 +8,7 @@ use alloc::string::String;
 use frame_support::{
     dispatch::DispatchResult,
     ensure,
-    traits::{Currency, OnRuntimeUpgrade, StorageVersion},
+    traits::{Currency, StorageVersion},
 };
 
 pub mod default_weights;
@@ -16,7 +16,7 @@ pub use default_weights::WeightInfo;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-pub use sp_avn_common::{node::Moment, CallDecoder, RewardPeriodIndex};
+pub use sp_avn_common::{CallDecoder, NodeSerial, RewardPeriodIndex};
 use sp_core::{ConstU32, Get, H256};
 use sp_runtime::{BoundedVec, Perquintill};
 use sp_std::prelude::*;
@@ -38,7 +38,10 @@ pub type ChainNameLimit = ConstU32<32>;
 pub const UPDATE_CHAIN_HANDLER: &'static [u8] = b"update_chain_handler";
 pub const SUBMIT_CHECKPOINT: &'static [u8] = b"submit_checkpoint";
 
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+
+/// Serial recorded on `RewardRecord`s that pre-date storage v3.
+pub const UNKNOWN_NODE_SERIAL: NodeSerial = u32::MAX;
 
 pub use self::pallet::*;
 pub type ChainId = u32;
@@ -59,7 +62,7 @@ pub trait AppChainRewardEligibility<AssetId, AccountId> {
         asset_id: AssetId,
         node_id: &AccountId,
         period: RewardPeriodIndex,
-        auto_stake_expiry: Moment,
+        node_serial: NodeSerial,
     ) -> bool;
 }
 
@@ -69,7 +72,7 @@ impl<AssetId, AccountId> AppChainRewardEligibility<AssetId, AccountId> for () {
         _asset_id: AssetId,
         _node_id: &AccountId,
         _period: RewardPeriodIndex,
-        _auto_stake_expiry: Moment,
+        _node_serial: NodeSerial,
     ) -> bool {
         true
     }
@@ -107,8 +110,8 @@ pub mod pallet {
         pub owner: AccountId,
         /// The node's share of the period reward pool (chain-independent).
         pub share: Perquintill,
-        /// The auto-stake expiry of the node as a UNIX timestamp in seconds.
-        pub auto_stake_expiry: Moment,
+        /// The node's serial number at accrual time (immutable per node).
+        pub node_serial: NodeSerial,
     }
 
     #[pallet::config]
@@ -193,9 +196,8 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            migration::v2::Migration::<T>::on_runtime_upgrade()
-        }
+        // Storage migrations are driven by the runtime via
+        // `migration::AvnAnchorMigrations` in the `Executive` migrations tuple.
 
         /// Pays outstanding app-chain rewards with leftover block weight.
         fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {

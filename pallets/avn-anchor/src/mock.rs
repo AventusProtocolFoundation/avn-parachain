@@ -329,6 +329,29 @@ parameter_types! {
     pub RewardPotAccount: AccountId = TestAccount::new([42u8; 32]).account_id();
 }
 
+thread_local! {
+    /// Node serials that `MockEligibility` reports as ineligible for every app chain. Empty by
+    /// default, so every node is eligible unless a test opts in.
+    pub static INELIGIBLE_SERIALS: RefCell<Vec<NodeSerial>> = RefCell::new(Vec::new());
+}
+
+/// Test eligibility hook: a node is eligible unless its recorded serial is in `INELIGIBLE_SERIALS`.
+pub struct MockEligibility;
+impl AppChainRewardEligibility<CurrencyId, AccountId> for MockEligibility {
+    fn is_eligible(
+        _asset_id: CurrencyId,
+        _node_id: &AccountId,
+        _period: RewardPeriodIndex,
+        node_serial: NodeSerial,
+    ) -> bool {
+        INELIGIBLE_SERIALS.with(|s| !s.borrow().contains(&node_serial))
+    }
+}
+
+pub fn set_ineligible_serials(serials: &[NodeSerial]) {
+    INELIGIBLE_SERIALS.with(|s| *s.borrow_mut() = serials.to_vec());
+}
+
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -345,7 +368,7 @@ impl Config for TestRuntime {
     type AssetRegistry = AssetRegistry;
     type RewardPot = RewardPotAccount;
     type MaxPeriodsPerPayout = ConstU32<100>;
-    type AppChainRewardEligibility = ();
+    type AppChainRewardEligibility = MockEligibility;
 }
 
 pub fn reward_pot_account() -> AccountId {

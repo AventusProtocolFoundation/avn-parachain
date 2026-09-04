@@ -385,9 +385,9 @@ impl PaymentHandler for TestRuntime {
 }
 
 thread_local! {
-    /// Records every `on_reward_paid` invocation as `(period, node, reward_percentage)` so tests can
-    /// assert the app-chain hook fires (or not) regardless of the native reward amount.
-    pub static ON_REWARD_PAID_CALLS: RefCell<Vec<(u64, AccountId, sp_runtime::Perquintill)>> =
+    /// Records every `on_reward_paid` invocation as `(period, node, node_serial, reward_percentage)`
+    /// so tests can assert the app-chain hook fires (or not) regardless of the native reward amount.
+    pub static ON_REWARD_PAID_CALLS: RefCell<Vec<(u64, AccountId, u32, sp_runtime::Perquintill)>> =
         RefCell::new(Vec::new());
 }
 
@@ -402,11 +402,13 @@ impl sp_avn_common::AppChainInterface for TestRuntime {
         period_index: &u64,
         _node_owner: &AccountId,
         node_id: &AccountId,
-        _auto_stake_expiry: u64,
+        node_serial: u32,
         reward_percentage: sp_runtime::Perquintill,
     ) -> frame_support::weights::Weight {
-        ON_REWARD_PAID_CALLS
-            .with(|c| c.borrow_mut().push((*period_index, node_id.clone(), reward_percentage)));
+        ON_REWARD_PAID_CALLS.with(|c| {
+            c.borrow_mut()
+                .push((*period_index, node_id.clone(), node_serial, reward_percentage))
+        });
         frame_support::weights::Weight::zero()
     }
 

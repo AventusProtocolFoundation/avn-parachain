@@ -521,6 +521,7 @@ impl pallet_avn_anchor::Config for Runtime {
     type RewardPot = AvnAnchorRewardPot;
     type MaxPeriodsPerPayout = MaxPeriodsPerPayout;
     // TODO: replace `()` with a runtime type implementing app-chain/node eligibility logic.
+    // The hook receives the node's serial number as snapshotted when the reward accrued.
     type AppChainRewardEligibility = ();
 }
 

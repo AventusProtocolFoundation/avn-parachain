@@ -110,7 +110,10 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (pallet_validators_manager::migration::ValidatorsManagerMigrations<Runtime>,),
+    (
+        pallet_validators_manager::migration::ValidatorsManagerMigrations<Runtime>,
+        pallet_avn_anchor::migration::AvnAnchorMigrations<Runtime>,
+    ),
 >;
 
 impl_opaque_keys! {

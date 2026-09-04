@@ -333,7 +333,7 @@ benchmarks! {
         UnpaidByPeriod::<T>::insert(
             period,
             &node,
-            RewardRecord { owner: owner.clone(), share: sp_runtime::Perquintill::from_percent(100), auto_stake_expiry: 0u64 },
+            RewardRecord { owner: owner.clone(), share: sp_runtime::Perquintill::from_percent(100), node_serial: 0u32 },
         );
         UnpaidByNode::<T>::insert(&node, period, ());
         // Mark the period completed so settling the last node reclaims the snapshot (worst case).
@@ -374,7 +374,7 @@ benchmarks! {
             UnpaidByPeriod::<T>::insert(
                 period,
                 &node,
-                RewardRecord { owner: owner.clone(), share: sp_runtime::Perquintill::from_percent(100), auto_stake_expiry: 0u64 },
+                RewardRecord { owner: owner.clone(), share: sp_runtime::Perquintill::from_percent(100), node_serial: 0u32 },
             );
             UnpaidByNode::<T>::insert(&node, period, ());
             // Mark completed so each period's snapshot is reclaimed on its final settle (worst case).
@@ -416,7 +416,7 @@ benchmarks! {
                 RewardRecord {
                     owner: owner.clone(),
                     share: sp_runtime::Perquintill::from_rational(1u64, n.max(1) as u64),
-                    auto_stake_expiry: 0u64,
+                    node_serial: 0u32,
                 },
             );
             UnpaidByNode::<T>::insert(&node, period, ());
@@ -449,7 +449,7 @@ benchmarks! {
                 &period,
                 &owner,
                 &node,
-                0u64,
+                0u32,
                 sp_runtime::Perquintill::from_percent(50),
             );
         }

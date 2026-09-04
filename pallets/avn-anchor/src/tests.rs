@@ -1495,11 +1495,7 @@ mod app_chain_rewards {
 
             assert_eq!(
                 UnpaidByPeriod::<TestRuntime>::get(7, node),
-                Some(RewardRecord {
-                    owner,
-                    share: Perquintill::from_percent(25),
-                    auto_stake_expiry: 0
-                })
+                Some(RewardRecord { owner, share: Perquintill::from_percent(25), node_serial: 0 })
             );
             assert!(UnpaidByNode::<TestRuntime>::contains_key(node, 7));
             // Zero share is not recorded.
@@ -1809,7 +1805,7 @@ mod app_chain_rewards {
                 RewardRecord {
                     owner: owner_fail,
                     share: Perquintill::from_percent(100),
-                    auto_stake_expiry: 0,
+                    node_serial: 0,
                 },
             );
             UnpaidByNode::<TestRuntime>::insert(node_fail, 1, ());
@@ -1822,7 +1818,7 @@ mod app_chain_rewards {
                 RewardRecord {
                     owner: owner_ok,
                     share: Perquintill::from_percent(100),
-                    auto_stake_expiry: 0,
+                    node_serial: 0,
                 },
             );
             UnpaidByNode::<TestRuntime>::insert(node_ok, 2, ());
@@ -1859,11 +1855,7 @@ mod app_chain_rewards {
                 UnpaidByPeriod::<TestRuntime>::insert(
                     period,
                     node,
-                    RewardRecord {
-                        owner,
-                        share: Perquintill::from_percent(10),
-                        auto_stake_expiry: 0,
-                    },
+                    RewardRecord { owner, share: Perquintill::from_percent(10), node_serial: 0 },
                 );
                 UnpaidByNode::<TestRuntime>::insert(node, period, ());
             }
@@ -1881,5 +1873,263 @@ mod app_chain_rewards {
             assert!(SweepCursor::<TestRuntime>::get().is_none());
             assert!(UnpaidByPeriod::<TestRuntime>::iter_prefix(period).next().is_none());
         });
+    }
+
+    #[test]
+    fn on_reward_paid_records_node_serial() {
+        new_test_ext().execute_with(|| {
+            let handler = create_account_id(9);
+            let owner = create_account_id(1);
+            let node = create_account_id(2);
+            accrue(7, handler, Asset::ForeignAsset(1), 1, 1_000);
+
+            <Anchor as AppChainInterface>::on_reward_paid(
+                &7,
+                &owner,
+                &node,
+                42,
+                Perquintill::from_percent(25),
+            );
+
+            assert_eq!(
+                UnpaidByPeriod::<TestRuntime>::get(7, node),
+                Some(RewardRecord { owner, share: Perquintill::from_percent(25), node_serial: 42 })
+            );
+        });
+    }
+
+    // The eligibility hook receives the serial snapshotted in the record. An ineligible node has
+    // every chain's slice skipped but its record is still settled; other nodes are unaffected.
+    #[test]
+    fn ineligible_serial_skips_all_chains_but_settles_record() {
+        new_test_ext().execute_with(|| {
+            let handler_a = create_account_id(10);
+            let handler_b = create_account_id(11);
+            let owner_out = create_account_id(1);
+            let owner_in = create_account_id(2);
+            let node_out = create_account_id(3);
+            let node_in = create_account_id(4);
+            let asset_a = Asset::ForeignAsset(1);
+            let asset_b = Asset::ForeignAsset(2);
+            let period = 4u64;
+
+            // Two funded chains for the same period.
+            accrue(period, handler_a, asset_a, 1, 1_000);
+            accrue(period, handler_b, asset_b, 2, 2_000);
+            fund_pot(asset_a, 10_000);
+            fund_pot(asset_b, 10_000);
+
+            <Anchor as AppChainInterface>::on_reward_paid(
+                &period,
+                &owner_out,
+                &node_out,
+                42,
+                Perquintill::from_percent(50),
+            );
+            <Anchor as AppChainInterface>::on_reward_paid(
+                &period,
+                &owner_in,
+                &node_in,
+                43,
+                Perquintill::from_percent(50),
+            );
+
+            // Only serial 42 is ineligible.
+            set_ineligible_serials(&[42]);
+
+            assert_ok!(Anchor::claim(RuntimeOrigin::signed(owner_out), node_out));
+            assert_eq!(token_balance(asset_a, &owner_out), 0);
+            assert_eq!(token_balance(asset_b, &owner_out), 0);
+            // Record still settled and cleared, with no payment event for this node.
+            assert!(UnpaidByPeriod::<TestRuntime>::get(period, node_out).is_none());
+            assert!(!UnpaidByNode::<TestRuntime>::contains_key(node_out, period));
+            assert!(!System::events().iter().any(|r| matches!(
+                &r.event,
+                RuntimeEvent::AvnAnchor(Event::AppChainRewardPaid { node, .. }) if *node == node_out
+            )));
+            assert!(event_emitted(
+                &Event::AppChainRewardSettledForNode { reward_period: period, node: node_out }
+                    .into()
+            ));
+
+            // The eligible serial is paid by both chains: 50% of 1_000 and 50% of 2_000.
+            assert_ok!(Anchor::claim(RuntimeOrigin::signed(owner_in), node_in));
+            assert_eq!(token_balance(asset_a, &owner_in), 500);
+            assert_eq!(token_balance(asset_b, &owner_in), 1_000);
+
+            set_ineligible_serials(&[]);
+        });
+    }
+
+    // Eligibility is evaluated against the serial stored in the record at payout time, so a change
+    // to the eligibility set between accrual and payout takes effect.
+    #[test]
+    fn eligibility_is_evaluated_at_payout_from_recorded_serial() {
+        new_test_ext().execute_with(|| {
+            let handler = create_account_id(1);
+            let owner = create_account_id(2);
+            let node = create_account_id(3);
+            let asset_id = Asset::ForeignAsset(1);
+            let period = 4u64;
+
+            accrue(period, handler, asset_id, 1, 1_000);
+            fund_pot(asset_id, 10_000);
+
+            // Ineligible at accrual time...
+            set_ineligible_serials(&[42]);
+            <Anchor as AppChainInterface>::on_reward_paid(
+                &period,
+                &owner,
+                &node,
+                42,
+                Perquintill::from_percent(30),
+            );
+            // ...but eligible again by the time it is paid.
+            set_ineligible_serials(&[]);
+
+            assert_ok!(Anchor::claim(RuntimeOrigin::signed(owner), node));
+            assert_eq!(token_balance(asset_id, &owner), 300);
+        });
+    }
+}
+
+mod migration_v3 {
+    use super::*;
+    use crate::{
+        migration::{v3::RewardRecordV2, AvnAnchorMigrations},
+        Pallet, RewardRecord, UnpaidByNode, UnpaidByPeriod, UNKNOWN_NODE_SERIAL,
+    };
+    use frame_support::{
+        storage::unhashed,
+        traits::{Get, GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
+    };
+    use sp_runtime::Perquintill;
+
+    /// Write a v2-layout record straight into `UnpaidByPeriod`'s slot, bypassing the typed API.
+    fn insert_legacy_record(period: u64, node: AccountId, owner: AccountId, share: Perquintill) {
+        let key = UnpaidByPeriod::<TestRuntime>::hashed_key_for(period, node);
+        unhashed::put(&key, &RewardRecordV2 { owner, share, auto_stake_expiry: 1_700_000_000 });
+        UnpaidByNode::<TestRuntime>::insert(node, period, ());
+    }
+
+    #[test]
+    fn translates_legacy_records_and_bumps_version() {
+        new_test_ext().execute_with(|| {
+            let owner = create_account_id(1);
+            let node_a = create_account_id(2);
+            let node_b = create_account_id(3);
+            StorageVersion::new(2).put::<Pallet<TestRuntime>>();
+            insert_legacy_record(4, node_a, owner, Perquintill::from_percent(30));
+            insert_legacy_record(5, node_b, owner, Perquintill::from_percent(70));
+
+            // Without the migration the legacy bytes still "decode" (SCALE ignores trailing
+            // bytes) but with the low 32 bits of the timestamp misread as the serial.
+            assert_eq!(
+                UnpaidByPeriod::<TestRuntime>::get(4, node_a).map(|r| r.node_serial),
+                Some(1_700_000_000u32)
+            );
+
+            AvnAnchorMigrations::<TestRuntime>::on_runtime_upgrade();
+
+            assert_eq!(Pallet::<TestRuntime>::on_chain_storage_version(), StorageVersion::new(3));
+            assert_eq!(
+                UnpaidByPeriod::<TestRuntime>::get(4, node_a),
+                Some(RewardRecord {
+                    owner,
+                    share: Perquintill::from_percent(30),
+                    node_serial: UNKNOWN_NODE_SERIAL
+                })
+            );
+            assert_eq!(
+                UnpaidByPeriod::<TestRuntime>::get(5, node_b),
+                Some(RewardRecord {
+                    owner,
+                    share: Perquintill::from_percent(70),
+                    node_serial: UNKNOWN_NODE_SERIAL
+                })
+            );
+            // The node index was not touched.
+            assert!(UnpaidByNode::<TestRuntime>::contains_key(node_a, 4));
+            assert!(UnpaidByNode::<TestRuntime>::contains_key(node_b, 5));
+        });
+    }
+
+    #[test]
+    fn is_a_noop_when_already_at_v3() {
+        new_test_ext().execute_with(|| {
+            let owner = create_account_id(1);
+            let node = create_account_id(2);
+            // The mock genesis does not set a storage version, so simulate an already-migrated
+            // chain.
+            StorageVersion::new(3).put::<Pallet<TestRuntime>>();
+            let record =
+                RewardRecord { owner, share: Perquintill::from_percent(30), node_serial: 42 };
+            UnpaidByPeriod::<TestRuntime>::insert(4, node, record.clone());
+
+            let weight = AvnAnchorMigrations::<TestRuntime>::on_runtime_upgrade();
+
+            // Only the version read is charged; nothing was translated.
+            let db_weight: frame_support::weights::RuntimeDbWeight =
+                <TestRuntime as frame_system::Config>::DbWeight::get();
+            assert_eq!(weight, db_weight.reads(1));
+            assert_eq!(UnpaidByPeriod::<TestRuntime>::get(4, node), Some(record));
+            assert_eq!(Pallet::<TestRuntime>::on_chain_storage_version(), StorageVersion::new(3));
+        });
+    }
+
+    // A migrated record (unknown serial) must still be payable.
+    #[test]
+    fn migrated_record_is_still_paid() {
+        new_test_ext().execute_with(|| {
+            let handler = create_account_id(1);
+            let owner = create_account_id(2);
+            let node = create_account_id(3);
+            let asset_id = Asset::ForeignAsset(1);
+            let period = 4u64;
+
+            let token = register_appchain_token(handler, asset_id);
+            crate::PeriodChainReward::<TestRuntime>::insert(period, asset_id, (token, 1_000));
+            fund_reward_pot(asset_id, 10_000);
+
+            StorageVersion::new(2).put::<Pallet<TestRuntime>>();
+            insert_legacy_record(period, node, owner, Perquintill::from_percent(30));
+            AvnAnchorMigrations::<TestRuntime>::on_runtime_upgrade();
+
+            assert_ok!(AvnAnchor::claim(RuntimeOrigin::signed(owner), node));
+            assert_eq!(
+                <Tokens as orml_traits::MultiCurrency<AccountId>>::free_balance(asset_id, &owner),
+                300
+            );
+            assert!(UnpaidByPeriod::<TestRuntime>::get(period, node).is_none());
+        });
+    }
+
+    #[cfg(feature = "try-runtime")]
+    #[test]
+    fn try_runtime_hooks_round_trip() {
+        new_test_ext().execute_with(|| {
+            let owner = create_account_id(1);
+            let node = create_account_id(2);
+            StorageVersion::new(2).put::<Pallet<TestRuntime>>();
+            insert_legacy_record(4, node, owner, Perquintill::from_percent(30));
+
+            let state = AvnAnchorMigrations::<TestRuntime>::pre_upgrade().expect("pre_upgrade");
+            AvnAnchorMigrations::<TestRuntime>::on_runtime_upgrade();
+            assert_ok!(AvnAnchorMigrations::<TestRuntime>::post_upgrade(state));
+        });
+    }
+
+    fn register_appchain_token(handler: AccountId, asset_id: CurrencyId) -> sp_core::H160 {
+        let token = make_token(1);
+        assert_ok!(register_appchain_call(handler, b"Chain", b"TKN", token, asset_id));
+        token
+    }
+
+    fn fund_reward_pot(asset_id: CurrencyId, amount: sp_avn_common::primitives::Balance) {
+        assert_ok!(<Tokens as orml_traits::MultiCurrency<AccountId>>::deposit(
+            asset_id,
+            &reward_pot_account(),
+            amount
+        ));
     }
 }

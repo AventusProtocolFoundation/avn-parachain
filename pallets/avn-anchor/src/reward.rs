@@ -42,7 +42,7 @@ impl<T: Config> AppChainInterface for Pallet<T> {
         period_index: &RewardPeriodIndex,
         node_owner: &Self::AccountId,
         node_id: &Self::AccountId,
-        auto_stake_expiry: Moment,
+        node_serial: NodeSerial,
         reward_percentage: Perquintill,
     ) -> Weight {
         if reward_percentage.is_zero() {
@@ -58,7 +58,7 @@ impl<T: Config> AppChainInterface for Pallet<T> {
         UnpaidByPeriod::<T>::insert(
             *period_index,
             node_id,
-            RewardRecord { owner: node_owner.clone(), share: reward_percentage, auto_stake_expiry },
+            RewardRecord { owner: node_owner.clone(), share: reward_percentage, node_serial },
         );
         UnpaidByNode::<T>::insert(node_id, *period_index, ());
         // Cost of recording a single node.
@@ -147,7 +147,7 @@ impl<T: Config> Pallet<T> {
                     asset_id,
                     node,
                     period,
-                    record.auto_stake_expiry,
+                    record.node_serial,
                 ) {
                     continue
                 }
