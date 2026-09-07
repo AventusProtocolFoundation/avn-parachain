@@ -2133,3 +2133,337 @@ mod migration_v3 {
         ));
     }
 }
+
+mod eligibility_override {
+    use super::*;
+    use crate::{
+        AppChainEligibilityOverrides, MaxEligibilityOverrides, UnpaidByPeriod,
+        MAX_ELIGIBILITY_OVERRIDES,
+    };
+    use orml_traits::MultiCurrency;
+    use sp_avn_common::{primitives::Balance, AppChainInterface, NodeSerial};
+    use sp_runtime::Perquintill;
+
+    const ASSET: CurrencyId = Asset::ForeignAsset(1);
+    const OTHER_ASSET: CurrencyId = Asset::ForeignAsset(2);
+
+    fn handler() -> AccountId {
+        create_account_id(1)
+    }
+
+    fn owner() -> AccountId {
+        create_account_id(2)
+    }
+
+    /// Registers an app chain for `asset`. `seed` must be unique per chain (token address).
+    fn register_chain(handler: AccountId, seed: u8, asset: CurrencyId) {
+        assert_ok!(register_appchain_call(handler, b"Chain", b"TKN", make_token(seed), asset));
+    }
+
+    /// Creates an account and makes it resolvable as a node with `serial`.
+    fn node(seed: u8, serial: NodeSerial) -> AccountId {
+        let node = create_account_id(seed);
+        register_mock_node(node, serial);
+        node
+    }
+
+    fn nodes(list: &[AccountId]) -> BoundedVec<AccountId, MaxEligibilityOverrides> {
+        BoundedVec::try_from(list.to_vec()).unwrap()
+    }
+
+    fn set_override(
+        asset: CurrencyId,
+        list: &[AccountId],
+        value: Option<bool>,
+    ) -> frame_support::dispatch::DispatchResult {
+        AvnAnchor::set_eligibility_override(RuntimeOrigin::root(), asset, nodes(list), value)
+    }
+
+    fn override_of(serial: NodeSerial, asset: CurrencyId) -> Option<bool> {
+        AppChainEligibilityOverrides::<TestRuntime>::get(serial, asset)
+    }
+
+    /// Registers a rewardable chain and snapshots `rate` for `period`.
+    fn accrue(period: u64, handler: AccountId, asset: CurrencyId, seed: u8, rate: Balance) {
+        register_chain(handler, seed, asset);
+        assert_ok!(AvnAnchor::set_appchain_period_reward(
+            RuntimeOrigin::signed(handler),
+            asset,
+            rate
+        ));
+        <AvnAnchor as AppChainInterface>::on_new_reward_period(&period);
+    }
+
+    fn fund_pot(asset: CurrencyId, amount: Balance) {
+        assert_ok!(<Tokens as MultiCurrency<AccountId>>::deposit(
+            asset,
+            &reward_pot_account(),
+            amount
+        ));
+    }
+
+    fn balance(asset: CurrencyId, who: &AccountId) -> Balance {
+        <Tokens as MultiCurrency<AccountId>>::free_balance(asset, who)
+    }
+
+    fn record_reward(period: u64, owner: AccountId, node: AccountId, serial: NodeSerial, pct: u64) {
+        <AvnAnchor as AppChainInterface>::on_reward_paid(
+            &period,
+            &owner,
+            &node,
+            serial,
+            Perquintill::from_percent(pct),
+        );
+    }
+
+    #[test]
+    fn rejects_non_root_origins() {
+        new_test_ext().execute_with(|| {
+            register_chain(handler(), 1, ASSET);
+            let n = node(3, 7);
+
+            assert_noop!(
+                AvnAnchor::set_eligibility_override(
+                    RuntimeOrigin::none(),
+                    ASSET,
+                    nodes(&[n]),
+                    Some(true)
+                ),
+                DispatchError::BadOrigin
+            );
+            assert_noop!(
+                AvnAnchor::set_eligibility_override(
+                    RuntimeOrigin::signed(handler()),
+                    ASSET,
+                    nodes(&[n]),
+                    Some(true)
+                ),
+                DispatchError::BadOrigin
+            );
+            assert_eq!(override_of(7, ASSET), None);
+        });
+    }
+
+    #[test]
+    fn rejects_unregistered_app_chain() {
+        new_test_ext().execute_with(|| {
+            let n = node(3, 7);
+            assert_noop!(
+                set_override(ASSET, &[n], Some(true)),
+                Error::<TestRuntime>::AppChainAssetNotRegistered
+            );
+        });
+    }
+
+    #[test]
+    fn rejects_unregistered_node_and_leaves_whole_batch_untouched() {
+        new_test_ext().execute_with(|| {
+            register_chain(handler(), 1, ASSET);
+            let registered = node(3, 7);
+            let unregistered = create_account_id(4);
+
+            assert_noop!(
+                set_override(ASSET, &[registered, unregistered], Some(false)),
+                Error::<TestRuntime>::NodeNotRegistered
+            );
+            assert_eq!(override_of(7, ASSET), None);
+        });
+    }
+
+    #[test]
+    fn sets_override_and_emits_event() {
+        new_test_ext().execute_with(|| {
+            register_chain(handler(), 1, ASSET);
+            let n = node(3, 7);
+
+            assert_ok!(set_override(ASSET, &[n], Some(true)));
+            assert_eq!(override_of(7, ASSET), Some(true));
+            System::assert_last_event(
+                Event::AppChainEligibilityOverrideSet {
+                    node: n,
+                    node_serial: 7,
+                    asset_id: ASSET,
+                    eligible: true,
+                }
+                .into(),
+            );
+
+            // Overwriting flips the stored value.
+            assert_ok!(set_override(ASSET, &[n], Some(false)));
+            assert_eq!(override_of(7, ASSET), Some(false));
+            System::assert_last_event(
+                Event::AppChainEligibilityOverrideSet {
+                    node: n,
+                    node_serial: 7,
+                    asset_id: ASSET,
+                    eligible: false,
+                }
+                .into(),
+            );
+        });
+    }
+
+    #[test]
+    fn clears_override_and_emits_event() {
+        new_test_ext().execute_with(|| {
+            register_chain(handler(), 1, ASSET);
+            let n = node(3, 7);
+            assert_ok!(set_override(ASSET, &[n], Some(false)));
+
+            assert_ok!(set_override(ASSET, &[n], None));
+            assert_eq!(override_of(7, ASSET), None);
+            System::assert_last_event(
+                Event::AppChainEligibilityOverrideCleared {
+                    node: n,
+                    node_serial: 7,
+                    asset_id: ASSET,
+                }
+                .into(),
+            );
+
+            // Clearing when nothing is set is still accepted.
+            assert_ok!(set_override(ASSET, &[n], None));
+        });
+    }
+
+    #[test]
+    fn batch_applies_to_every_node_and_is_isolated_per_node_and_asset() {
+        new_test_ext().execute_with(|| {
+            register_chain(handler(), 1, ASSET);
+            register_chain(create_account_id(9), 2, OTHER_ASSET);
+            let a = node(3, 7);
+            let b = node(4, 8);
+            let c = node(5, 9);
+
+            assert_ok!(set_override(ASSET, &[a, b, c], Some(false)));
+            for serial in [7, 8, 9] {
+                assert_eq!(override_of(serial, ASSET), Some(false));
+            }
+            let set_events = System::events()
+                .iter()
+                .filter(|r| {
+                    matches!(
+                        r.event,
+                        RuntimeEvent::AvnAnchor(Event::AppChainEligibilityOverrideSet { .. })
+                    )
+                })
+                .count();
+            assert_eq!(set_events, 3);
+
+            // The other asset is untouched, and overriding it does not affect the first asset.
+            assert_eq!(override_of(7, OTHER_ASSET), None);
+            assert_ok!(set_override(OTHER_ASSET, &[a], Some(true)));
+            assert_eq!(override_of(7, OTHER_ASSET), Some(true));
+            assert_eq!(override_of(7, ASSET), Some(false));
+            assert_eq!(override_of(8, OTHER_ASSET), None);
+
+            // Clearing one (node, asset) leaves every other entry intact.
+            assert_ok!(set_override(ASSET, &[a], None));
+            assert_eq!(override_of(7, ASSET), None);
+            assert_eq!(override_of(7, OTHER_ASSET), Some(true));
+            assert_eq!(override_of(8, ASSET), Some(false));
+            assert_eq!(override_of(9, ASSET), Some(false));
+        });
+    }
+
+    #[test]
+    fn batch_is_bounded_to_fifty_nodes() {
+        assert_eq!(MAX_ELIGIBILITY_OVERRIDES, 50);
+        let fifty: Vec<AccountId> = (0..50u8).map(|i| create_account_id(100 + i)).collect();
+        assert!(BoundedVec::<AccountId, MaxEligibilityOverrides>::try_from(fifty.clone()).is_ok());
+        let mut fifty_one = fifty;
+        fifty_one.push(create_account_id(200));
+        assert!(BoundedVec::<AccountId, MaxEligibilityOverrides>::try_from(fifty_one).is_err());
+
+        new_test_ext().execute_with(|| {
+            register_chain(handler(), 1, ASSET);
+            let fifty: Vec<AccountId> =
+                (0..50u8).map(|i| node(100 + i, 1_000 + i as NodeSerial)).collect();
+            assert_ok!(set_override(ASSET, &fifty, Some(false)));
+            assert_eq!(AppChainEligibilityOverrides::<TestRuntime>::iter().count(), 50);
+        });
+    }
+
+    // The base rule (mock: `INELIGIBLE_SERIALS`) says no, the override says yes: the node is paid.
+    #[test]
+    fn override_makes_base_rule_ineligible_node_eligible() {
+        new_test_ext().execute_with(|| {
+            let period = 4u64;
+            accrue(period, handler(), ASSET, 1, 1_000);
+            fund_pot(ASSET, 10_000);
+            let n = node(3, 42);
+            record_reward(period, owner(), n, 42, 50);
+            set_ineligible_serials(&[42]);
+
+            assert_ok!(set_override(ASSET, &[n], Some(true)));
+            assert_ok!(AvnAnchor::claim(RuntimeOrigin::signed(owner()), n));
+
+            assert_eq!(balance(ASSET, &owner()), 500);
+            set_ineligible_serials(&[]);
+        });
+    }
+
+    // The base rule says yes, the override says no: the chain's slice is skipped but the record is
+    // still settled.
+    #[test]
+    fn override_makes_base_rule_eligible_node_ineligible() {
+        new_test_ext().execute_with(|| {
+            let period = 4u64;
+            accrue(period, handler(), ASSET, 1, 1_000);
+            fund_pot(ASSET, 10_000);
+            let n = node(3, 42);
+            record_reward(period, owner(), n, 42, 50);
+
+            assert_ok!(set_override(ASSET, &[n], Some(false)));
+            assert_ok!(AvnAnchor::claim(RuntimeOrigin::signed(owner()), n));
+
+            assert_eq!(balance(ASSET, &owner()), 0);
+            assert!(UnpaidByPeriod::<TestRuntime>::get(period, n).is_none());
+            assert!(!System::events().iter().any(|r| matches!(
+                &r.event,
+                RuntimeEvent::AvnAnchor(Event::AppChainRewardPaid { node, .. }) if *node == n
+            )));
+        });
+    }
+
+    // An override for one app chain does not touch the node's payout from another chain.
+    #[test]
+    fn override_is_applied_per_app_chain_at_payout() {
+        new_test_ext().execute_with(|| {
+            let period = 4u64;
+            accrue(period, handler(), ASSET, 1, 1_000);
+            accrue(period, create_account_id(9), OTHER_ASSET, 2, 2_000);
+            fund_pot(ASSET, 10_000);
+            fund_pot(OTHER_ASSET, 10_000);
+            let n = node(3, 42);
+            record_reward(period, owner(), n, 42, 50);
+
+            assert_ok!(set_override(ASSET, &[n], Some(false)));
+            assert_ok!(AvnAnchor::claim(RuntimeOrigin::signed(owner()), n));
+
+            assert_eq!(balance(ASSET, &owner()), 0);
+            assert_eq!(balance(OTHER_ASSET, &owner()), 1_000);
+        });
+    }
+
+    // Clearing an override hands the decision back to the base rule.
+    #[test]
+    fn clearing_override_restores_base_rule() {
+        new_test_ext().execute_with(|| {
+            let period = 4u64;
+            accrue(period, handler(), ASSET, 1, 1_000);
+            fund_pot(ASSET, 10_000);
+            let n = node(3, 42);
+            record_reward(period, owner(), n, 42, 50);
+            set_ineligible_serials(&[42]);
+
+            assert_ok!(set_override(ASSET, &[n], Some(true)));
+            assert_ok!(set_override(ASSET, &[n], None));
+            assert_ok!(AvnAnchor::claim(RuntimeOrigin::signed(owner()), n));
+
+            assert_eq!(balance(ASSET, &owner()), 0);
+            assert!(UnpaidByPeriod::<TestRuntime>::get(period, n).is_none());
+            set_ineligible_serials(&[]);
+        });
+    }
+}

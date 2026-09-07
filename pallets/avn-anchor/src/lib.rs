@@ -16,7 +16,7 @@ pub use default_weights::WeightInfo;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
-pub use sp_avn_common::{CallDecoder, NodeSerial, RewardPeriodIndex};
+pub use sp_avn_common::{CallDecoder, NodeSerial, NodeSerialLookup, RewardPeriodIndex};
 use sp_core::{ConstU32, Get, H256};
 use sp_runtime::{BoundedVec, Perquintill};
 use sp_std::prelude::*;
@@ -28,12 +28,19 @@ mod mock;
 mod tests;
 
 pub mod benchmarking;
+mod eligibility;
 pub mod migration;
 mod reward;
+
+pub use eligibility::OverridableEligibility;
 
 pub type MaximumHandlersBound = ConstU32<256>;
 
 pub type ChainNameLimit = ConstU32<32>;
+
+/// Max nodes per `set_eligibility_override` call.
+pub const MAX_ELIGIBILITY_OVERRIDES: u32 = 50;
+pub type MaxEligibilityOverrides = ConstU32<MAX_ELIGIBILITY_OVERRIDES>;
 
 pub const UPDATE_CHAIN_HANDLER: &'static [u8] = b"update_chain_handler";
 pub const SUBMIT_CHECKPOINT: &'static [u8] = b"submit_checkpoint";
@@ -188,6 +195,10 @@ pub mod pallet {
             Self::AppChainAssetId,
             Self::AccountId,
         >;
+
+        /// Resolves a node account to its serial number (implemented by node-manager). Used by
+        /// `set_eligibility_override` to key overrides on the immutable serial.
+        type NodeSerialLookup: NodeSerialLookup<Self::AccountId>;
     }
 
     #[pallet::pallet]
@@ -262,6 +273,21 @@ pub mod pallet {
 
         /// An app chain was fully deregistered (routing state removed, asset marked non-native).
         AppChainDeregistered { chain_id: ChainId, asset_id: T::AppChainAssetId },
+
+        /// Root forced a node's reward eligibility for an app chain.
+        AppChainEligibilityOverrideSet {
+            node: T::AccountId,
+            node_serial: NodeSerial,
+            asset_id: T::AppChainAssetId,
+            eligible: bool,
+        },
+
+        /// Root cleared a node's eligibility override for an app chain (base rule applies again).
+        AppChainEligibilityOverrideCleared {
+            node: T::AccountId,
+            node_serial: NodeSerial,
+            asset_id: T::AppChainAssetId,
+        },
     }
 
     #[pallet::error]
@@ -312,6 +338,8 @@ pub mod pallet {
         AppChainNotDisabled,
         /// The app chain is already disabled or deregistered.
         AppChainNotActive,
+        /// The account is not a registered node.
+        NodeNotRegistered,
     }
 
     #[pallet::storage]
@@ -372,6 +400,20 @@ pub mod pallet {
     #[pallet::getter(fn registered_appchains)]
     pub type RegisteredAppchains<T: Config> =
         StorageValue<_, BoundedVec<T::AppChainAssetId, T::MaxRegisteredAppChains>, ValueQuery>;
+
+    /// Root-set reward eligibility override per `(node serial, app chain asset)`.
+    /// `true` forces the node eligible, `false` forces it ineligible,
+    /// absent means the base rule decides.
+    #[pallet::storage]
+    pub type AppChainEligibilityOverrides<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        NodeSerial,
+        Blake2_128Concat,
+        T::AppChainAssetId,
+        bool,
+        OptionQuery,
+    >;
 
     /// The total reward amount to be snapshotted at the beginning of the next reward
     /// period. Stored separately so changing it does not affect unpaid reward periods.
@@ -761,6 +803,55 @@ pub mod pallet {
         pub fn reclaim_period(origin: OriginFor<T>, period: RewardPeriodIndex) -> DispatchResult {
             ensure_root(origin)?;
             Self::try_reclaim_period(period);
+            Ok(())
+        }
+
+        /// Root-only. Force or clear the reward eligibility of up to `MAX_ELIGIBILITY_OVERRIDES`
+        /// nodes for the app chain identified by `asset_id`.
+        ///
+        /// `Some(true)` forces the nodes eligible, `Some(false)` forces them ineligible and `None`
+        /// clears any existing override so the base rule applies again. Overrides are keyed by the
+        /// node's serial number, so they survive node transfers. The whole batch is rejected if
+        /// `asset_id` is not a registered app chain or any node is not registered.
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_eligibility_override(node_ids.len() as u32))]
+        #[pallet::call_index(14)]
+        pub fn set_eligibility_override(
+            origin: OriginFor<T>,
+            asset_id: T::AppChainAssetId,
+            node_ids: BoundedVec<T::AccountId, MaxEligibilityOverrides>,
+            eligibility_override: Option<bool>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(
+                AssetIdToChainId::<T>::contains_key(asset_id),
+                Error::<T>::AppChainAssetNotRegistered
+            );
+
+            for node in &node_ids {
+                let node_serial =
+                    T::NodeSerialLookup::node_serial(node).ok_or(Error::<T>::NodeNotRegistered)?;
+
+                match eligibility_override {
+                    Some(eligible) => {
+                        AppChainEligibilityOverrides::<T>::insert(node_serial, asset_id, eligible);
+                        Self::deposit_event(Event::AppChainEligibilityOverrideSet {
+                            node: node.clone(),
+                            node_serial,
+                            asset_id,
+                            eligible,
+                        });
+                    },
+                    None => {
+                        AppChainEligibilityOverrides::<T>::remove(node_serial, asset_id);
+                        Self::deposit_event(Event::AppChainEligibilityOverrideCleared {
+                            node: node.clone(),
+                            node_serial,
+                            asset_id,
+                        });
+                    },
+                }
+            }
+
             Ok(())
         }
     }

@@ -53,6 +53,7 @@ pub trait WeightInfo {
 	fn disable_appchain() -> Weight;
 	fn deregister_appchain() -> Weight;
 	fn on_reward_period_completed() -> Weight;
+	fn set_eligibility_override(b: u32, ) -> Weight;
 }
 
 /// Weights for pallet_avn_anchor using the Substrate node and recommended hardware.
@@ -181,12 +182,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(11_705_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: `AvnAnchor::NextRewardAmountPerPeriod` (r:1 w:1)
-	/// Proof: `AvnAnchor::NextRewardAmountPerPeriod` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::AssetIdToChainId` (r:1 w:0)
 	/// Proof: `AvnAnchor::AssetIdToChainId` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::ChainHandlers` (r:1 w:0)
 	/// Proof: `AvnAnchor::ChainHandlers` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::NextRewardAmountPerPeriod` (r:1 w:1)
+	/// Proof: `AvnAnchor::NextRewardAmountPerPeriod` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRegistry::Metadata` (r:1 w:0)
 	/// Proof: `AssetRegistry::Metadata` (`max_values`: None, `max_size`: Some(2698), added: 5173, mode: `MaxEncodedLen`)
 	fn set_appchain_period_reward() -> Weight {
@@ -217,9 +218,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(0, 2532).saturating_mul(n.into()))
 	}
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:2 w:1)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:26 w:25)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::AppChainEligibilityOverrides` (r:25 w:0)
+	/// Proof: `AvnAnchor::AppChainEligibilityOverrides` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRegistry::LocationToAssetId` (r:25 w:0)
 	/// Proof: `AssetRegistry::LocationToAssetId` (`max_values`: None, `max_size`: Some(624), added: 3099, mode: `MaxEncodedLen`)
 	/// Storage: `OrmlTokens::Accounts` (r:50 w:50)
@@ -235,14 +238,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `n` is `[1, 25]`.
 	fn pay_node_period(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `863 + n * (261 ±0)`
-		//  Estimated: `6180 + n * (5173 ±0)`
-		// Minimum execution time: 93_450_000 picoseconds.
-		Weight::from_parts(80_206_054, 6180)
-			// Standard Error: 218_623
-			.saturating_add(Weight::from_parts(46_591_003, 0).saturating_mul(n.into()))
+		//  Measured:  `859 + n * (261 ±0)`
+		//  Estimated: `6172 + n * (5173 ±0)`
+		// Minimum execution time: 98_585_000 picoseconds.
+		Weight::from_parts(76_098_640, 6172)
+			// Standard Error: 248_505
+			.saturating_add(Weight::from_parts(50_083_613, 0).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(6_u64))
-			.saturating_add(T::DbWeight::get().reads((5_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().reads((6_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 5173).saturating_mul(n.into()))
@@ -250,9 +253,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `AvnAnchor::UnpaidByNode` (r:11 w:10)
 	/// Proof: `AvnAnchor::UnpaidByNode` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:20 w:10)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:260 w:250)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::AppChainEligibilityOverrides` (r:25 w:0)
+	/// Proof: `AvnAnchor::AppChainEligibilityOverrides` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRegistry::LocationToAssetId` (r:25 w:0)
 	/// Proof: `AssetRegistry::LocationToAssetId` (`max_values`: None, `max_size`: Some(624), added: 3099, mode: `MaxEncodedLen`)
 	/// Storage: `OrmlTokens::Accounts` (r:50 w:50)
@@ -267,17 +272,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `c` is `[1, 25]`.
 	fn claim(p: u32, c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0 + c * (834 ±0) + p * (1810 ±0)`
-		//  Estimated: `52110 + c * (8150 ±295) + p * (21057 ±741)`
-		// Minimum execution time: 721_850_000 picoseconds.
-		Weight::from_parts(841_840_000, 52110)
-			// Standard Error: 9_196_591
-			.saturating_add(Weight::from_parts(265_990_482, 0).saturating_mul(p.into()))
-			// Standard Error: 3_662_281
-			.saturating_add(Weight::from_parts(110_922_959, 0).saturating_mul(c.into()))
-			.saturating_add(T::DbWeight::get().reads(66_u64))
+		//  Measured:  `0 + c * (834 ±0) + p * (1806 ±0)`
+		//  Estimated: `52110 + c * (8150 ±0) + p * (21057 ±0)`
+		// Minimum execution time: 815_809_000 picoseconds.
+		Weight::from_parts(1_079_236_000, 52110)
+			// Standard Error: 10_091_270
+			.saturating_add(Weight::from_parts(268_836_619, 0).saturating_mul(p.into()))
+			// Standard Error: 4_018_562
+			.saturating_add(Weight::from_parts(112_743_457, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(67_u64))
 			.saturating_add(T::DbWeight::get().reads((9_u64).saturating_mul(p.into())))
-			.saturating_add(T::DbWeight::get().reads((6_u64).saturating_mul(c.into())))
+			.saturating_add(T::DbWeight::get().reads((7_u64).saturating_mul(c.into())))
 			.saturating_add(T::DbWeight::get().writes(43_u64))
 			.saturating_add(T::DbWeight::get().writes((9_u64).saturating_mul(p.into())))
 			.saturating_add(T::DbWeight::get().writes((5_u64).saturating_mul(c.into())))
@@ -287,9 +292,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `AvnAnchor::SweepCursor` (r:1 w:1)
 	/// Proof: `AvnAnchor::SweepCursor` (`max_values`: Some(1), `max_size`: Some(40), added: 535, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:12 w:10)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:26 w:25)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::AppChainEligibilityOverrides` (r:25 w:0)
+	/// Proof: `AvnAnchor::AppChainEligibilityOverrides` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRegistry::LocationToAssetId` (r:25 w:0)
 	/// Proof: `AssetRegistry::LocationToAssetId` (`max_values`: None, `max_size`: Some(624), added: 3099, mode: `MaxEncodedLen`)
 	/// Storage: `OrmlTokens::Accounts` (r:50 w:50)
@@ -306,27 +313,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `c` is `[1, 25]`.
 	fn process_outstanding_rewards(n: u32, c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `691 + c * (261 ±0) + n * (182 ±0)`
-		//  Estimated: `6180 + c * (5173 ±0) + n * (2595 ±0)`
-		// Minimum execution time: 552_254_000 picoseconds.
-		Weight::from_parts(649_313_000, 6180)
-			// Standard Error: 7_929_159
-			.saturating_add(Weight::from_parts(222_882_877, 0).saturating_mul(n.into()))
-			// Standard Error: 3_157_562
-			.saturating_add(Weight::from_parts(110_465_095, 0).saturating_mul(c.into()))
+		//  Measured:  `691 + c * (261 ±0) + n * (178 ±0)`
+		//  Estimated: `6172 + c * (5173 ±0) + n * (2591 ±0)`
+		// Minimum execution time: 570_251_000 picoseconds.
+		Weight::from_parts(628_009_000, 6172)
+			// Standard Error: 8_563_106
+			.saturating_add(Weight::from_parts(243_393_709, 0).saturating_mul(n.into()))
+			// Standard Error: 3_410_014
+			.saturating_add(Weight::from_parts(113_130_118, 0).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(n.into())))
-			.saturating_add(T::DbWeight::get().reads((5_u64).saturating_mul(c.into())))
+			.saturating_add(T::DbWeight::get().reads((6_u64).saturating_mul(c.into())))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(n.into())))
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(c.into())))
 			.saturating_add(Weight::from_parts(0, 5173).saturating_mul(c.into()))
-			.saturating_add(Weight::from_parts(0, 2595).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2591).saturating_mul(n.into()))
 	}
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:2 w:0)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:0 w:999)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::UnpaidByNode` (r:0 w:999)
 	/// Proof: `AvnAnchor::UnpaidByNode` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 1000]`.
@@ -334,10 +341,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `261`
 		//  Estimated: `6102`
-		// Minimum execution time: 16_967_000 picoseconds.
-		Weight::from_parts(17_341_000, 6102)
-			// Standard Error: 19_742
-			.saturating_add(Weight::from_parts(9_677_964, 0).saturating_mul(b.into()))
+		// Minimum execution time: 14_781_000 picoseconds.
+		Weight::from_parts(15_509_000, 6102)
+			// Standard Error: 20_202
+			.saturating_add(Weight::from_parts(9_831_542, 0).saturating_mul(b.into()))
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes((2_u64).saturating_mul(b.into())))
 	}
@@ -345,16 +352,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `AvnAnchor::AssetIdToChainId` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::ChainHandlers` (r:1 w:0)
 	/// Proof: `AvnAnchor::ChainHandlers` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
-	/// Storage: `AssetRegistry::Metadata` (r:1 w:0)
-	/// Proof: `AssetRegistry::Metadata` (`max_values`: None, `max_size`: Some(2698), added: 5173, mode: `MaxEncodedLen`)
-	/// Storage: `AvnAnchor::NextRewardAmountPerPeriod` (r:0 w:1)
+	/// Storage: `AvnAnchor::NextRewardAmountPerPeriod` (r:1 w:1)
 	/// Proof: `AvnAnchor::NextRewardAmountPerPeriod` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	fn disable_appchain() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `478`
-		//  Estimated: `6163`
-		// Minimum execution time: 27_234_000 picoseconds.
-		Weight::from_parts(30_250_000, 6163)
+		//  Measured:  `257`
+		//  Estimated: `3522`
+		// Minimum execution time: 20_965_000 picoseconds.
+		Weight::from_parts(22_345_000, 3522)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -377,8 +382,28 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
+	/// Storage: `AvnAnchor::AssetIdToChainId` (r:1 w:0)
+	/// Proof: `AvnAnchor::AssetIdToChainId` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+	/// Storage: `NodeManager::NodeRegistry` (r:50 w:0)
+	/// Proof: `NodeManager::NodeRegistry` (`max_values`: None, `max_size`: Some(191), added: 2666, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::AppChainEligibilityOverrides` (r:0 w:50)
+	/// Proof: `AvnAnchor::AppChainEligibilityOverrides` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
+	/// The range of component `b` is `[1, 50]`.
+	fn set_eligibility_override(b: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `461 + b * (168 ±0)`
+		//  Estimated: `3490 + b * (2666 ±0)`
+		// Minimum execution time: 23_223_000 picoseconds.
+		Weight::from_parts(20_340_316, 3490)
+			// Standard Error: 63_283
+			.saturating_add(Weight::from_parts(9_279_853, 0).saturating_mul(b.into()))
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(b.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(b.into())))
+			.saturating_add(Weight::from_parts(0, 2666).saturating_mul(b.into()))
+	}
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:1 w:0)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:26 w:25)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodPayoutCompleted` (r:0 w:1)
@@ -519,12 +544,12 @@ impl WeightInfo for () {
 		Weight::from_parts(11_705_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: `AvnAnchor::NextRewardAmountPerPeriod` (r:1 w:1)
-	/// Proof: `AvnAnchor::NextRewardAmountPerPeriod` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::AssetIdToChainId` (r:1 w:0)
 	/// Proof: `AvnAnchor::AssetIdToChainId` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::ChainHandlers` (r:1 w:0)
 	/// Proof: `AvnAnchor::ChainHandlers` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::NextRewardAmountPerPeriod` (r:1 w:1)
+	/// Proof: `AvnAnchor::NextRewardAmountPerPeriod` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRegistry::Metadata` (r:1 w:0)
 	/// Proof: `AssetRegistry::Metadata` (`max_values`: None, `max_size`: Some(2698), added: 5173, mode: `MaxEncodedLen`)
 	fn set_appchain_period_reward() -> Weight {
@@ -555,9 +580,11 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(0, 2532).saturating_mul(n.into()))
 	}
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:2 w:1)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:26 w:25)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::AppChainEligibilityOverrides` (r:25 w:0)
+	/// Proof: `AvnAnchor::AppChainEligibilityOverrides` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRegistry::LocationToAssetId` (r:25 w:0)
 	/// Proof: `AssetRegistry::LocationToAssetId` (`max_values`: None, `max_size`: Some(624), added: 3099, mode: `MaxEncodedLen`)
 	/// Storage: `OrmlTokens::Accounts` (r:50 w:50)
@@ -573,14 +600,14 @@ impl WeightInfo for () {
 	/// The range of component `n` is `[1, 25]`.
 	fn pay_node_period(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `863 + n * (261 ±0)`
-		//  Estimated: `6180 + n * (5173 ±0)`
-		// Minimum execution time: 93_450_000 picoseconds.
-		Weight::from_parts(80_206_054, 6180)
-			// Standard Error: 218_623
-			.saturating_add(Weight::from_parts(46_591_003, 0).saturating_mul(n.into()))
+		//  Measured:  `859 + n * (261 ±0)`
+		//  Estimated: `6172 + n * (5173 ±0)`
+		// Minimum execution time: 98_585_000 picoseconds.
+		Weight::from_parts(76_098_640, 6172)
+			// Standard Error: 248_505
+			.saturating_add(Weight::from_parts(50_083_613, 0).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
-			.saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().reads((6_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 5173).saturating_mul(n.into()))
@@ -588,9 +615,11 @@ impl WeightInfo for () {
 	/// Storage: `AvnAnchor::UnpaidByNode` (r:11 w:10)
 	/// Proof: `AvnAnchor::UnpaidByNode` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:20 w:10)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:260 w:250)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::AppChainEligibilityOverrides` (r:25 w:0)
+	/// Proof: `AvnAnchor::AppChainEligibilityOverrides` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRegistry::LocationToAssetId` (r:25 w:0)
 	/// Proof: `AssetRegistry::LocationToAssetId` (`max_values`: None, `max_size`: Some(624), added: 3099, mode: `MaxEncodedLen`)
 	/// Storage: `OrmlTokens::Accounts` (r:50 w:50)
@@ -605,17 +634,17 @@ impl WeightInfo for () {
 	/// The range of component `c` is `[1, 25]`.
 	fn claim(p: u32, c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `0 + c * (834 ±0) + p * (1810 ±0)`
-		//  Estimated: `52110 + c * (8150 ±295) + p * (21057 ±741)`
-		// Minimum execution time: 721_850_000 picoseconds.
-		Weight::from_parts(841_840_000, 52110)
-			// Standard Error: 9_196_591
-			.saturating_add(Weight::from_parts(265_990_482, 0).saturating_mul(p.into()))
-			// Standard Error: 3_662_281
-			.saturating_add(Weight::from_parts(110_922_959, 0).saturating_mul(c.into()))
-			.saturating_add(RocksDbWeight::get().reads(66_u64))
+		//  Measured:  `0 + c * (834 ±0) + p * (1806 ±0)`
+		//  Estimated: `52110 + c * (8150 ±0) + p * (21057 ±0)`
+		// Minimum execution time: 815_809_000 picoseconds.
+		Weight::from_parts(1_079_236_000, 52110)
+			// Standard Error: 10_091_270
+			.saturating_add(Weight::from_parts(268_836_619, 0).saturating_mul(p.into()))
+			// Standard Error: 4_018_562
+			.saturating_add(Weight::from_parts(112_743_457, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(67_u64))
 			.saturating_add(RocksDbWeight::get().reads((9_u64).saturating_mul(p.into())))
-			.saturating_add(RocksDbWeight::get().reads((6_u64).saturating_mul(c.into())))
+			.saturating_add(RocksDbWeight::get().reads((7_u64).saturating_mul(c.into())))
 			.saturating_add(RocksDbWeight::get().writes(43_u64))
 			.saturating_add(RocksDbWeight::get().writes((9_u64).saturating_mul(p.into())))
 			.saturating_add(RocksDbWeight::get().writes((5_u64).saturating_mul(c.into())))
@@ -625,9 +654,11 @@ impl WeightInfo for () {
 	/// Storage: `AvnAnchor::SweepCursor` (r:1 w:1)
 	/// Proof: `AvnAnchor::SweepCursor` (`max_values`: Some(1), `max_size`: Some(40), added: 535, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:12 w:10)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:26 w:25)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::AppChainEligibilityOverrides` (r:25 w:0)
+	/// Proof: `AvnAnchor::AppChainEligibilityOverrides` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
 	/// Storage: `AssetRegistry::LocationToAssetId` (r:25 w:0)
 	/// Proof: `AssetRegistry::LocationToAssetId` (`max_values`: None, `max_size`: Some(624), added: 3099, mode: `MaxEncodedLen`)
 	/// Storage: `OrmlTokens::Accounts` (r:50 w:50)
@@ -644,27 +675,27 @@ impl WeightInfo for () {
 	/// The range of component `c` is `[1, 25]`.
 	fn process_outstanding_rewards(n: u32, c: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `691 + c * (261 ±0) + n * (182 ±0)`
-		//  Estimated: `6180 + c * (5173 ±0) + n * (2595 ±0)`
-		// Minimum execution time: 552_254_000 picoseconds.
-		Weight::from_parts(649_313_000, 6180)
-			// Standard Error: 7_929_159
-			.saturating_add(Weight::from_parts(222_882_877, 0).saturating_mul(n.into()))
-			// Standard Error: 3_157_562
-			.saturating_add(Weight::from_parts(110_465_095, 0).saturating_mul(c.into()))
+		//  Measured:  `691 + c * (261 ±0) + n * (178 ±0)`
+		//  Estimated: `6172 + c * (5173 ±0) + n * (2591 ±0)`
+		// Minimum execution time: 570_251_000 picoseconds.
+		Weight::from_parts(628_009_000, 6172)
+			// Standard Error: 8_563_106
+			.saturating_add(Weight::from_parts(243_393_709, 0).saturating_mul(n.into()))
+			// Standard Error: 3_410_014
+			.saturating_add(Weight::from_parts(113_130_118, 0).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().reads((2_u64).saturating_mul(n.into())))
-			.saturating_add(RocksDbWeight::get().reads((5_u64).saturating_mul(c.into())))
+			.saturating_add(RocksDbWeight::get().reads((6_u64).saturating_mul(c.into())))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 			.saturating_add(RocksDbWeight::get().writes((2_u64).saturating_mul(n.into())))
 			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(c.into())))
 			.saturating_add(Weight::from_parts(0, 5173).saturating_mul(c.into()))
-			.saturating_add(Weight::from_parts(0, 2595).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(0, 2591).saturating_mul(n.into()))
 	}
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:2 w:0)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:0 w:999)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::UnpaidByNode` (r:0 w:999)
 	/// Proof: `AvnAnchor::UnpaidByNode` (`max_values`: None, `max_size`: Some(72), added: 2547, mode: `MaxEncodedLen`)
 	/// The range of component `b` is `[1, 1000]`.
@@ -683,9 +714,7 @@ impl WeightInfo for () {
 	/// Proof: `AvnAnchor::AssetIdToChainId` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::ChainHandlers` (r:1 w:0)
 	/// Proof: `AvnAnchor::ChainHandlers` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
-	/// Storage: `AssetRegistry::Metadata` (r:1 w:0)
-	/// Proof: `AssetRegistry::Metadata` (`max_values`: None, `max_size`: Some(2698), added: 5173, mode: `MaxEncodedLen`)
-	/// Storage: `AvnAnchor::NextRewardAmountPerPeriod` (r:0 w:1)
+	/// Storage: `AvnAnchor::NextRewardAmountPerPeriod` (r:1 w:1)
 	/// Proof: `AvnAnchor::NextRewardAmountPerPeriod` (`max_values`: None, `max_size`: Some(57), added: 2532, mode: `MaxEncodedLen`)
 	fn disable_appchain() -> Weight {
 		// Proof Size summary in bytes:
@@ -715,8 +744,28 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
+	/// Storage: `AvnAnchor::AssetIdToChainId` (r:1 w:0)
+	/// Proof: `AvnAnchor::AssetIdToChainId` (`max_values`: None, `max_size`: Some(25), added: 2500, mode: `MaxEncodedLen`)
+	/// Storage: `NodeManager::NodeRegistry` (r:50 w:0)
+	/// Proof: `NodeManager::NodeRegistry` (`max_values`: None, `max_size`: Some(191), added: 2666, mode: `MaxEncodedLen`)
+	/// Storage: `AvnAnchor::AppChainEligibilityOverrides` (r:0 w:50)
+	/// Proof: `AvnAnchor::AppChainEligibilityOverrides` (`max_values`: None, `max_size`: Some(42), added: 2517, mode: `MaxEncodedLen`)
+	/// The range of component `b` is `[1, 50]`.
+	fn set_eligibility_override(b: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `461 + b * (168 ±0)`
+		//  Estimated: `3490 + b * (2666 ±0)`
+		// Minimum execution time: 23_223_000 picoseconds.
+		Weight::from_parts(20_340_316, 3490)
+			// Standard Error: 63_283
+			.saturating_add(Weight::from_parts(9_279_853, 0).saturating_mul(b.into()))
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(b.into())))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(b.into())))
+			.saturating_add(Weight::from_parts(0, 2666).saturating_mul(b.into()))
+	}
 	/// Storage: `AvnAnchor::UnpaidByPeriod` (r:1 w:0)
-	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(120), added: 2595, mode: `MaxEncodedLen`)
+	/// Proof: `AvnAnchor::UnpaidByPeriod` (`max_values`: None, `max_size`: Some(116), added: 2591, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodChainReward` (r:26 w:25)
 	/// Proof: `AvnAnchor::PeriodChainReward` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
 	/// Storage: `AvnAnchor::PeriodPayoutCompleted` (r:0 w:1)

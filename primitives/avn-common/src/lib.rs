@@ -474,6 +474,20 @@ pub type RewardPeriodIndex = u64;
 /// the node. Shared with avn-anchor so app chains can key eligibility decisions on it.
 pub type NodeSerial = u32;
 
+/// Resolves a node account to its immutable serial number. Implemented by node-manager and used by
+/// pallets (e.g. avn-anchor) that key per-node state on the serial rather than the account.
+pub trait NodeSerialLookup<AccountId> {
+    /// Returns `None` if `node` is not a registered node.
+    fn node_serial(node: &AccountId) -> Option<NodeSerial>;
+}
+
+/// Default implementation: no node is known.
+impl<AccountId> NodeSerialLookup<AccountId> for () {
+    fn node_serial(_node: &AccountId) -> Option<NodeSerial> {
+        None
+    }
+}
+
 /// Interface for interacting with app chains.
 pub trait AppChainInterface {
     type AccountId;
