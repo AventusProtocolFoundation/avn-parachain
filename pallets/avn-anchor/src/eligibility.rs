@@ -27,7 +27,7 @@ where
         node_serial: NodeSerial,
     ) -> bool {
         match AppChainEligibilityOverrides::<T>::get(node_serial, asset_id) {
-            Some(overriden_eligibility) => overriden_eligibility,
+            Some(overridden_eligibility) => overridden_eligibility,
             None => Fallback::is_eligible(asset_id, node_id, period, node_serial),
         }
     }
