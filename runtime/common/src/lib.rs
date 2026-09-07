@@ -78,6 +78,6 @@ parameter_types! {
     // An extrinsic usually has a payload with a few hundred bytes, and its weight fee should be of a few tens of mAVT.
     // In consequence TransactionByteFee should be set at a few tens of MICRO_AVT.
     // The actual value here was chosen to be a round number so that a Token Transfer be around 40 mAVT, and an AVT transfer be around 20 mAVT.
-    pub const TransactionByteFee: Balance = 5 * MICRO_AVT;
+    pub const TransactionByteFee: Balance = 50 * MICRO_AVT;
     pub const OperationalFeeMultiplier: u8 = 5;
 }
