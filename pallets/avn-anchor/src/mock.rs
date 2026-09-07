@@ -33,7 +33,7 @@ use sp_runtime::{
     traits::{ConvertInto, IdentityLookup, Verify},
     BuildStorage, Perbill, Saturating,
 };
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
@@ -329,6 +329,49 @@ parameter_types! {
     pub RewardPotAccount: AccountId = TestAccount::new([42u8; 32]).account_id();
 }
 
+thread_local! {
+    /// Node serials that `MockEligibility` reports as ineligible for every app chain. Empty by
+    /// default, so every node is eligible unless a test opts in.
+    pub static INELIGIBLE_SERIALS: RefCell<Vec<NodeSerial>> = RefCell::new(Vec::new());
+}
+
+/// Test eligibility hook: a node is eligible unless its recorded serial is in `INELIGIBLE_SERIALS`.
+pub struct MockEligibility;
+impl AppChainRewardEligibility<CurrencyId, AccountId> for MockEligibility {
+    fn is_eligible(
+        _asset_id: CurrencyId,
+        _node_id: &AccountId,
+        _period: RewardPeriodIndex,
+        node_serial: NodeSerial,
+    ) -> bool {
+        INELIGIBLE_SERIALS.with(|s| !s.borrow().contains(&node_serial))
+    }
+}
+
+pub fn set_ineligible_serials(serials: &[NodeSerial]) {
+    INELIGIBLE_SERIALS.with(|s| *s.borrow_mut() = serials.to_vec());
+}
+
+thread_local! {
+    /// Node account -> serial map backing `MockNodeSerialLookup`. Empty unless a test registers
+    /// nodes via `register_mock_node`.
+    pub static NODE_SERIALS: RefCell<BTreeMap<AccountId, NodeSerial>> = RefCell::new(BTreeMap::new());
+}
+
+/// Test stand-in for node-manager's `NodeSerialLookup`.
+pub struct MockNodeSerialLookup;
+impl NodeSerialLookup<AccountId> for MockNodeSerialLookup {
+    fn node_serial(node: &AccountId) -> Option<NodeSerial> {
+        NODE_SERIALS.with(|m| m.borrow().get(node).copied())
+    }
+}
+
+pub fn register_mock_node(node: AccountId, serial: NodeSerial) {
+    NODE_SERIALS.with(|m| {
+        m.borrow_mut().insert(node, serial);
+    });
+}
+
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -345,7 +388,9 @@ impl Config for TestRuntime {
     type AssetRegistry = AssetRegistry;
     type RewardPot = RewardPotAccount;
     type MaxPeriodsPerPayout = ConstU32<100>;
-    type AppChainRewardEligibility = ();
+    // Root overrides first, then the mock base rule (`INELIGIBLE_SERIALS`).
+    type AppChainRewardEligibility = OverridableEligibility<TestRuntime, MockEligibility>;
+    type NodeSerialLookup = MockNodeSerialLookup;
 }
 
 pub fn reward_pot_account() -> AccountId {
@@ -358,6 +403,10 @@ impl crate::benchmarking::BenchmarkHelper<TestRuntime> for TestRuntime {
         use orml_traits::MultiCurrency;
         let _ =
             <Tokens as MultiCurrency<AccountId>>::deposit(asset_id, &reward_pot_account(), amount);
+    }
+
+    fn register_node(node: &AccountId, serial: NodeSerial) {
+        register_mock_node(node.clone(), serial);
     }
 }
 

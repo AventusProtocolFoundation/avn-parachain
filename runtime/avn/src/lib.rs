@@ -159,6 +159,7 @@ pub type Executive = frame_executive::Executive<
     (
         migrations::register_avt_token::RegisterAvtToken<Runtime>,
         pallet_eth_bridge::migration::EthBridgeMigrations<Runtime>,
+        pallet_avn_anchor::migration::AvnAnchorMigrations<Runtime>,
         pallet_session::migrations::v1::MigrateV0ToV1<
             Runtime,
             pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,

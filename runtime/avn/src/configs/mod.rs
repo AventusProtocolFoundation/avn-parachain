@@ -565,8 +565,9 @@ impl pallet_avn_anchor::Config for Runtime {
     type AssetRegistry = AssetRegistry;
     type RewardPot = AvnAnchorRewardPot;
     type MaxPeriodsPerPayout = MaxPeriodsPerPayout;
-    // replace `()` with a runtime type implementing app-chain/node eligibility logic when ready.
-    type AppChainRewardEligibility = ();
+    // Root-set per-(node, app chain) overrides first, then the base rule (`()`: everyone eligible).
+    type AppChainRewardEligibility = pallet_avn_anchor::OverridableEligibility<Runtime, ()>;
+    type NodeSerialLookup = NodeManager;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -577,6 +578,19 @@ impl pallet_avn_anchor::benchmarking::BenchmarkHelper<Runtime> for Runtime {
             asset_id,
             &AvnAnchorRewardPot::get(),
             amount,
+        );
+    }
+
+    fn register_node(node: &AccountId, serial: sp_avn_common::NodeSerial) {
+        use codec::{Decode, Encode};
+        use pallet_node_manager::types::{NodeInfo, StakeInfo, UnstakeRestriction};
+        // Derive a signing key from the account bytes (same trick as `RuntimeNodeManager`).
+        let signing_key = NodeManagerKeyId::decode(&mut node.encode().as_slice())
+            .expect("a 32-byte account decodes to an sr25519 key");
+        let stake = StakeInfo::<Balance>::new(0, 0, None, UnstakeRestriction::Locked);
+        pallet_node_manager::NodeRegistry::<Runtime>::insert(
+            node,
+            NodeInfo::new(node.clone(), signing_key, serial, 0u64, false, stake),
         );
     }
 }

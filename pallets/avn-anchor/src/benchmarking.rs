@@ -109,6 +109,8 @@ fn register_appchain_for_bench<T: Config>(
 /// required via the `benchmarks!` `where_clause`.
 pub trait BenchmarkHelper<T: Config> {
     fn fund_reward_pot(asset_id: T::AppChainAssetId, amount: BalanceOf<T>);
+    /// Make `node` resolvable through `T::NodeSerialLookup` with the given serial.
+    fn register_node(node: &T::AccountId, serial: NodeSerial);
 }
 
 benchmarks! {
@@ -333,7 +335,7 @@ benchmarks! {
         UnpaidByPeriod::<T>::insert(
             period,
             &node,
-            RewardRecord { owner: owner.clone(), share: sp_runtime::Perquintill::from_percent(100), auto_stake_expiry: 0u64 },
+            RewardRecord { owner: owner.clone(), share: sp_runtime::Perquintill::from_percent(100), node_serial: 0u32 },
         );
         UnpaidByNode::<T>::insert(&node, period, ());
         // Mark the period completed so settling the last node reclaims the snapshot (worst case).
@@ -374,7 +376,7 @@ benchmarks! {
             UnpaidByPeriod::<T>::insert(
                 period,
                 &node,
-                RewardRecord { owner: owner.clone(), share: sp_runtime::Perquintill::from_percent(100), auto_stake_expiry: 0u64 },
+                RewardRecord { owner: owner.clone(), share: sp_runtime::Perquintill::from_percent(100), node_serial: 0u32 },
             );
             UnpaidByNode::<T>::insert(&node, period, ());
             // Mark completed so each period's snapshot is reclaimed on its final settle (worst case).
@@ -416,7 +418,7 @@ benchmarks! {
                 RewardRecord {
                     owner: owner.clone(),
                     share: sp_runtime::Perquintill::from_rational(1u64, n.max(1) as u64),
-                    auto_stake_expiry: 0u64,
+                    node_serial: 0u32,
                 },
             );
             UnpaidByNode::<T>::insert(&node, period, ());
@@ -449,7 +451,7 @@ benchmarks! {
                 &period,
                 &owner,
                 &node,
-                0u64,
+                0u32,
                 sp_runtime::Perquintill::from_percent(50),
             );
         }
@@ -481,6 +483,25 @@ benchmarks! {
         assert!(!ChainHandlers::<T>::contains_key(&handler));
         assert!(NextRewardAmountPerPeriod::<T>::get(asset_id).is_none());
         assert!(!RegisteredAppchains::<T>::get().contains(&asset_id));
+    }
+
+    // `b` = number of nodes overridden in one call.
+    set_eligibility_override {
+        let b in 1 .. MAX_ELIGIBILITY_OVERRIDES;
+        let handler: T::AccountId = create_account_id::<T>(0);
+        let asset_id = register_appchain_for_bench::<T>(&handler, 1)?;
+        let mut node_ids: BoundedVec<T::AccountId, MaxEligibilityOverrides> = BoundedVec::new();
+        for i in 0 .. b {
+            let node: T::AccountId = account("node", i, SEED);
+            T::register_node(&node, i);
+            node_ids.try_push(node).expect("within bound");
+        }
+    }: _(RawOrigin::Root, asset_id, node_ids.clone(), Some(false))
+    verify {
+        for node in &node_ids {
+            let serial = T::NodeSerialLookup::node_serial(node).expect("node registered");
+            assert_eq!(AppChainEligibilityOverrides::<T>::get(serial, asset_id), Some(false));
+        }
     }
 
     // Worst case: completing a period that was snapshotted across `MaxRegisteredAppChains` chains but

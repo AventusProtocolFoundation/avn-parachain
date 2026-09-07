@@ -520,8 +520,25 @@ impl pallet_avn_anchor::Config for Runtime {
     type AssetRegistry = AssetRegistry;
     type RewardPot = AvnAnchorRewardPot;
     type MaxPeriodsPerPayout = MaxPeriodsPerPayout;
-    // TODO: replace `()` with a runtime type implementing app-chain/node eligibility logic.
-    type AppChainRewardEligibility = ();
+    // Root-set per-(node, app chain) overrides first, then the base rule (`()`: everyone eligible).
+    type AppChainRewardEligibility = pallet_avn_anchor::OverridableEligibility<Runtime, ()>;
+    type NodeSerialLookup = TestRuntimeNodeSerialLookup;
+}
+
+/// This runtime has no node-manager, so outside benchmarks no account resolves to a node serial and
+/// `set_eligibility_override` fails with `NodeNotRegistered`. Under benchmarks every account
+/// resolves to serial 0 so the extrinsic can still be measured.
+pub struct TestRuntimeNodeSerialLookup;
+impl sp_avn_common::NodeSerialLookup<AccountId> for TestRuntimeNodeSerialLookup {
+    fn node_serial(_node: &AccountId) -> Option<sp_avn_common::NodeSerial> {
+        #[cfg(feature = "runtime-benchmarks")]
+        {
+            return Some(0)
+        }
+
+        #[cfg(not(feature = "runtime-benchmarks"))]
+        None
+    }
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -533,6 +550,10 @@ impl pallet_avn_anchor::benchmarking::BenchmarkHelper<Runtime> for Runtime {
             &AvnAnchorRewardPot::get(),
             amount,
         );
+    }
+
+    fn register_node(_node: &AccountId, _serial: sp_avn_common::NodeSerial) {
+        // No node-manager here; `TestRuntimeNodeSerialLookup` resolves every account in benchmarks.
     }
 }
 

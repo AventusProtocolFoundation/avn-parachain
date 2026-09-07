@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
                 period,
                 &node_owner,
                 &node_id,
-                node_info.auto_stake_expiry,
+                node_info.serial_number,
                 reward_percentage,
             );
         }

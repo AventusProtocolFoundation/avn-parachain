@@ -57,7 +57,6 @@ pub mod event_types;
 pub mod http_data_codec;
 pub mod node;
 pub mod ocw_lock;
-use crate::node::Moment;
 pub use node as primitives;
 #[cfg(test)]
 #[path = "tests/test_event_discovery.rs"]
@@ -471,6 +470,24 @@ impl<BlockNumber, Weight: Zero> OnIdleHandler<BlockNumber, Weight> for () {
 /// Shared index type for reward periods, used by both node-manager and avn-anchor.
 pub type RewardPeriodIndex = u64;
 
+/// A node's serial number, allocated by node-manager at registration and immutable for the life of
+/// the node. Shared with avn-anchor so app chains can key eligibility decisions on it.
+pub type NodeSerial = u32;
+
+/// Resolves a node account to its immutable serial number. Implemented by node-manager and used by
+/// pallets (e.g. avn-anchor) that key per-node state on the serial rather than the account.
+pub trait NodeSerialLookup<AccountId> {
+    /// Returns `None` if `node` is not a registered node.
+    fn node_serial(node: &AccountId) -> Option<NodeSerial>;
+}
+
+/// Default implementation: no node is known.
+impl<AccountId> NodeSerialLookup<AccountId> for () {
+    fn node_serial(_node: &AccountId) -> Option<NodeSerial> {
+        None
+    }
+}
+
 /// Interface for interacting with app chains.
 pub trait AppChainInterface {
     type AccountId;
@@ -480,13 +497,13 @@ pub trait AppChainInterface {
 
     /// Called when a node receives a reward. Returns the weight actually consumed.
     ///
-    /// `auto_stake_expiry` (the node's auto-stake expiry, a UNIX timestamp in
-    /// seconds) is passed so app chains can conditionally decide whether/how to reward the node.
+    /// `node_serial` (the node's immutable serial number assigned at registration) is passed so
+    /// app chains can conditionally decide whether/how to reward the node.
     fn on_reward_paid(
         period_index: &RewardPeriodIndex,
         node_owner: &Self::AccountId,
         node_id: &Self::AccountId,
-        auto_stake_expiry: Moment,
+        node_serial: NodeSerial,
         reward_percentage: sp_runtime::Perquintill,
     ) -> Weight;
 
@@ -515,7 +532,7 @@ impl<AccountId> AppChainInterface for NoopAppChainInterface<AccountId> {
         _period_index: &RewardPeriodIndex,
         _node_owner: &AccountId,
         _node_id: &AccountId,
-        _auto_stake_expiry: Moment,
+        _node_serial: NodeSerial,
         _reward_percentage: sp_runtime::Perquintill,
     ) -> Weight {
         Weight::zero()
@@ -545,7 +562,7 @@ impl AppChainInterface for () {
         _period_index: &RewardPeriodIndex,
         _node_owner: &(),
         _node_id: &(),
-        _auto_stake_expiry: Moment,
+        _node_serial: NodeSerial,
         _reward_percentage: sp_runtime::Perquintill,
     ) -> Weight {
         Weight::zero()

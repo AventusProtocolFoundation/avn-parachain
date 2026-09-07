@@ -146,7 +146,7 @@ pub type MaxStakeChangesPerPeriod = ConstU32<MAX_STAKE_CHANGES_PER_PERIOD>;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
+    use sp_avn_common::{verify_signature, InnerCallValidator, NodeSerialLookup, Proof};
 
     use super::*;
 
@@ -2247,6 +2247,12 @@ pub mod pallet {
     impl<T: Config> ProcessedEventHandler for Pallet<T> {
         fn on_event_processed(event: &EthEvent) -> DispatchResult {
             Self::processed_event_handler(event)
+        }
+    }
+
+    impl<T: Config> NodeSerialLookup<T::AccountId> for Pallet<T> {
+        fn node_serial(node: &T::AccountId) -> Option<sp_avn_common::NodeSerial> {
+            NodeRegistry::<T>::get(node).map(|info| info.serial_number)
         }
     }
 
