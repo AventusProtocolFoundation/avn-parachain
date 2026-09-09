@@ -103,6 +103,7 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         ValidatorManager: validators_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
+        Historical: pallet_session::historical,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Avn: pallet_avn::{Pallet, Storage, Event},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -139,7 +140,6 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type ProcessedEventsChecker = Self;
     type VotingPeriod = VotingPeriod;
     type AccountToBytesConvert = Avn;
@@ -157,11 +157,11 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for TestRuntime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for TestRuntime
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         Extrinsic::new_bare(call)
     }
 }
@@ -211,7 +211,6 @@ impl timestamp::Config for TestRuntime {
 
 impl pallet_eth_bridge::Config for TestRuntime {
     type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type MinEthBlockConfirmation = ConstU64<20>;
     type RuntimeCall = RuntimeCall;
@@ -254,6 +253,7 @@ impl session::Config for TestRuntime {
 }
 
 impl pallet_session::historical::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
 }
@@ -275,7 +275,6 @@ parameter_types! {
 
 impl parachain_staking::Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type MinBlocksPerEra = MinBlocksPerEra;
     type RewardPaymentDelay = RewardPaymentDelay;

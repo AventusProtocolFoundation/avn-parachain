@@ -91,6 +91,7 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         AuthorsManager: authors_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
+        Historical: pallet_session::historical,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
@@ -130,7 +131,6 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AccountToBytesConvert = AVN;
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
@@ -146,11 +146,11 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for TestRuntime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for TestRuntime
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         Extrinsic::new_bare(call)
     }
 }
@@ -188,7 +188,6 @@ impl system::Config for TestRuntime {
 }
 
 impl avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = AuthorsManager;
@@ -230,7 +229,6 @@ impl timestamp::Config for TestRuntime {
 
 impl pallet_eth_bridge::Config for TestRuntime {
     type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type MinEthBlockConfirmation = ConstU64<20>;
     type RuntimeCall = RuntimeCall;
@@ -273,6 +271,7 @@ impl session::Config for TestRuntime {
 }
 
 impl pallet_session::historical::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
 }

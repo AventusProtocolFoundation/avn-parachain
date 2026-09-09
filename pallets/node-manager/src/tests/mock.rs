@@ -98,7 +98,6 @@ impl pallet_avn::ProcessedEventsChecker for TestProcessedEventsChecker {
 }
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type SignerId = UintAuthorityId;
@@ -152,11 +151,11 @@ where
     type Extrinsic = Extrinsic;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for TestRuntime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for TestRuntime
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         Extrinsic::new_bare(call)
     }
 }
@@ -178,7 +177,6 @@ impl system::Config for TestRuntime {
 }
 
 impl pallet_avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();

@@ -91,6 +91,7 @@ frame_support::construct_runtime!(
         Avn: pallet_avn::{Pallet, Storage, Event},
         EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
+        Historical: pallet_session::historical,
     }
 );
 
@@ -102,11 +103,11 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for TestRuntime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for TestRuntime
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         Extrinsic::new_bare(call)
     }
 }
@@ -118,7 +119,6 @@ parameter_types! {
 
 impl Config for TestRuntime {
     type MaxQueuedTxRequests = ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
@@ -286,6 +286,7 @@ impl session::Config for TestRuntime {
 }
 
 impl pallet_session::historical::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
 }

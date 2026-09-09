@@ -82,7 +82,7 @@ frame_support::construct_runtime!(
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Historical: pallet_session::historical::{Pallet, Storage},
+        Historical: pallet_session::historical::{Pallet, Storage, Event<T>},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Preimage: pallet_preimage,
@@ -99,7 +99,6 @@ parameter_types! {
 }
 
 impl token_manager::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProcessedEventsChecker = Self;
@@ -160,11 +159,11 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for TestRuntime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for TestRuntime
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         Extrinsic::new_bare(call)
     }
 }
@@ -268,7 +267,6 @@ parameter_types! {
 
 impl parachain_staking::Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type MinBlocksPerEra = MinBlocksPerEra;
     type RewardPaymentDelay = RewardPaymentDelay;
@@ -292,13 +290,13 @@ impl parachain_staking::Config for TestRuntime {
 }
 
 impl pallet_session::historical::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
 }
 
 impl pallet_eth_bridge::Config for TestRuntime {
     type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = ConstU64<20>;
@@ -350,7 +348,6 @@ impl orml_currencies::Config for TestRuntime {
 }
 
 impl orml_asset_registry::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type CustomMetadata = AvnAssetMetadata;
     type AssetId = CurrencyId;
     type AuthorityOrigin = EnsureRoot<TestAccountIdPK>;
@@ -380,7 +377,6 @@ impl orml_tokens::Config for TestRuntime {
     type Balance = Balance;
     type CurrencyId = CurrencyId;
     type DustRemovalWhitelist = Everything;
-    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposits = ExistentialDeposits;
     type MaxLocks = MaxLocks;
     type MaxReserves = MaxReserves;

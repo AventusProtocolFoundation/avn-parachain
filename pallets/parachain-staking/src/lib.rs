@@ -106,7 +106,7 @@ pub mod pallet {
         transactional, PalletId,
     };
     pub use frame_system::{
-        offchain::{CreateInherent, CreateTransactionBase, SubmitTransaction},
+        offchain::{CreateBare, CreateTransactionBase, SubmitTransaction},
         pallet_prelude::*,
     };
     pub use pallet_avn::{
@@ -159,7 +159,7 @@ pub mod pallet {
         + pallet_avn::Config
         + pallet_session::historical::Config
         + CreateTransactionBase<Call<Self>>
-        + CreateInherent<Call<Self>>
+        + CreateBare<Call<Self>>
     {
         /// The overarching call type.
         type RuntimeCall: Parameter
@@ -167,8 +167,6 @@ pub mod pallet {
             + GetDispatchInfo
             + From<frame_system::Call<Self>>
             + IsSubType<Call<Self>>;
-        /// Overarching event type
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The currency type
         type Currency: Currency<Self::AccountId>
             + ReservableCurrency<Self::AccountId>

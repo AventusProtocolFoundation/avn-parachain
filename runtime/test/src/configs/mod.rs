@@ -223,6 +223,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
     type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
     type ConsensusHook = ConsensusHook;
     type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
+    type RelayParentOffset = ConstU32<0>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -307,7 +308,6 @@ parameter_types! {
 }
 impl pallet_parachain_staking::Config for Runtime {
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     /// Minimum era length is 4 minutes (20 * 12 second block times)
     type MinBlocksPerEra = ConstU32<20>;
@@ -343,6 +343,7 @@ impl pallet_authority_discovery::Config for Runtime {
 }
 
 impl pallet_session::historical::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     // TODO review this as originally was using the staking pallet. This is a minimal approach on
     // the Identification
     type FullIdentification = AccountId;
@@ -363,11 +364,11 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<C> frame_system::offchain::CreateInherent<C> for Runtime
+impl<C> frame_system::offchain::CreateBare<C> for Runtime
 where
     RuntimeCall: From<C>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         UncheckedExtrinsic::new_bare(call)
     }
 }
@@ -405,13 +406,11 @@ impl pallet_utility::Config for Runtime {
 
 // AvN pallets
 impl pallet_avn_offence_handler::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type Enforcer = ();
     type WeightInfo = pallet_avn_offence_handler::default_weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_avn::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AvnId;
     type EthereumPublicKeyChecker = ValidatorsManager;
     type NewSessionHandler = ValidatorsManager;
@@ -426,7 +425,6 @@ parameter_types! {
 
 impl pallet_ethereum_events::Config for Runtime {
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type ProcessedEventHandler = (TokenManager, NftManager);
     type MinEthBlockConfirmation = MinEthBlockConfirmation;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
@@ -444,7 +442,6 @@ parameter_types! {
 }
 
 impl pallet_validators_manager::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type ProcessedEventsChecker = EthBridge;
     type VotingPeriod = ValidatorManagerVotingPeriod;
     type AccountToBytesConvert = Avn;
@@ -469,7 +466,6 @@ parameter_types! {
 
 pub type EthSummary = pallet_summary::Instance1;
 impl pallet_summary::Config<EthSummary> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
     type AccountToBytesConvert = Avn;
@@ -484,7 +480,6 @@ impl pallet_summary::Config<EthSummary> for Runtime {
 
 pub type AvnAnchorSummary = pallet_summary::Instance2;
 impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
     type AccountToBytesConvert = Avn;
@@ -506,7 +501,6 @@ parameter_types! {
 
 impl pallet_avn_anchor::Config for Runtime {
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
@@ -560,7 +554,6 @@ impl pallet_avn_anchor::benchmarking::BenchmarkHelper<Runtime> for Runtime {
 pub type EthAddress = H160;
 
 impl pallet_token_manager::pallet::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type TokenBalance = Balance;
@@ -584,7 +577,6 @@ impl pallet_token_manager::pallet::Config for Runtime {
 }
 
 impl pallet_nft_manager::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type ProcessedEventsChecker = EthBridge;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
@@ -594,7 +586,6 @@ impl pallet_nft_manager::Config for Runtime {
 }
 
 impl pallet_avn_proxy::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
@@ -607,7 +598,6 @@ impl pallet_avn_proxy::Config for Runtime {
 
 impl pallet_eth_bridge::Config<MainEthBridge> for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = MinEthBlockConfirmation;
     type ProcessedEventsChecker = EthBridge;
@@ -624,7 +614,6 @@ impl pallet_eth_bridge::Config<MainEthBridge> for Runtime {
 
 impl pallet_eth_bridge::Config<SecondaryEthBridge> for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = MinEthBlockConfirmation;
     type ProcessedEventsChecker = EthBridge;
@@ -644,7 +633,6 @@ parameter_types! {
 }
 
 impl pallet_cross_chain_voting::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type MaxLinkedAccounts = MaxLinkedAccounts;
     type WeightInfo = pallet_cross_chain_voting::default_weights::SubstrateWeight<Runtime>;
@@ -710,7 +698,6 @@ impl orml_tokens::Config for Runtime {
     type CurrencyHooks = CurrencyHooks<Runtime>;
     type CurrencyId = CurrencyId;
     type DustRemovalWhitelist = DustRemovalWhitelist;
-    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposits = OrmlExistentialDeposits;
     type MaxLocks = MaxLocks;
     type MaxReserves = MaxReserves;
@@ -728,7 +715,6 @@ impl orml_asset_registry::Config for Runtime {
     type AuthorityOrigin = EnsureRoot<AccountId>;
     type Balance = Balance;
     type CustomMetadata = AvnAssetMetadata;
-    type RuntimeEvent = RuntimeEvent;
     type StringLimit = AssetRegistryStringLimit;
     type AssetProcessor = AvnAssetProcessor;
     // Determines if this is an Eth asset or an XCM asset

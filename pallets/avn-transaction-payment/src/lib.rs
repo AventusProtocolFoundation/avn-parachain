@@ -15,7 +15,6 @@ use frame_support::{
     },
     unsigned::TransactionValidityError,
 };
-use frame_system::{self as system};
 
 use core::convert::TryInto;
 pub use pallet::*;
@@ -41,11 +40,6 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
-        /// The overarching event type.
-        type RuntimeEvent: From<Event<Self>>
-            + Into<<Self as system::Config>::RuntimeEvent>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// The overarching call type
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>

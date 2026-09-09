@@ -339,7 +339,7 @@ frame_support::construct_runtime!(
         Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
         Avn: pallet_avn::{Pallet, Storage, Event},
         Summary: summary::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Historical: pallet_session::historical::{Pallet, Storage},
+        Historical: pallet_session::historical::{Pallet, Storage, Event<T>},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         AnchorSummary: summary::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -382,7 +382,6 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
     type AccountToBytesConvert = U64To32BytesConverter;
@@ -397,7 +396,6 @@ impl Config for TestRuntime {
 
 type AvnAnchorSummary = summary::Instance1;
 impl Config<AvnAnchorSummary> for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
     type AccountToBytesConvert = U64To32BytesConverter;
@@ -418,11 +416,11 @@ where
     type RuntimeCall = RuntimeCall;
 }
 
-impl<LocalCall> frame_system::offchain::CreateInherent<LocalCall> for TestRuntime
+impl<LocalCall> frame_system::offchain::CreateBare<LocalCall> for TestRuntime
 where
     RuntimeCall: From<LocalCall>,
 {
-    fn create_inherent(call: Self::RuntimeCall) -> Self::Extrinsic {
+    fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
         Extrinsic::new_bare(call)
     }
 }
@@ -440,7 +438,6 @@ impl avn::Config for TestRuntime {
 
 impl pallet_eth_bridge::Config for TestRuntime {
     type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = ConstU64<20>;
@@ -517,6 +514,7 @@ impl session::SessionManager<u64> for TestSessionManager {
 }
 
 impl pallet_session::historical::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = u64;
     type FullIdentificationOf = ConvertInto;
 }
