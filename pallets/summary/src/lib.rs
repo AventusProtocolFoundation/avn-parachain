@@ -108,11 +108,6 @@ pub mod pallet {
         + CreateTransactionBase<Call<Self, I>>
         + CreateInherent<Call<Self, I>>
     {
-        #[pallet::no_default_bounds]
-        type RuntimeEvent: From<Event<Self, I>>
-            + Into<<Self as frame_system::Config>::RuntimeEvent>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// A period (in block number) to detect when a validator failed to advance the current slot
         /// number
         #[pallet::no_default_bounds]

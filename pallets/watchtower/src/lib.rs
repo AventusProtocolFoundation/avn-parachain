@@ -81,13 +81,6 @@ pub mod pallet {
     pub trait Config:
         CreateTransactionBase<Call<Self>> + CreateInherent<Call<Self>> + frame_system::Config
     {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>
-            + Clone
-            + Eq
-            + PartialEq
-            + core::fmt::Debug;
-
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>

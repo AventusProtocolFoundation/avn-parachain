@@ -69,13 +69,6 @@ pub mod pallet {
         + pallet_watchtower::Config
         + pallet_avn::Config
     {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>
-            + Clone
-            + Eq
-            + PartialEq
-            + core::fmt::Debug;
-
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + From<Call<Self>>;

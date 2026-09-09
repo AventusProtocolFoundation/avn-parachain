@@ -43,7 +43,6 @@ frame_support::construct_runtime!(
 );
 
 impl pallet_watchtower::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type ExternalProposerOrigin = EnsureExternalProposerOrRoot;
     type SignerId = SignerId;
@@ -60,7 +59,6 @@ impl pallet_watchtower::Config for TestRuntime {
 }
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
 }
@@ -127,7 +125,6 @@ impl pallet_timestamp::Config for TestRuntime {
 }
 
 impl pallet_avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();

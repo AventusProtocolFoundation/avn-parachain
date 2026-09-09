@@ -80,10 +80,6 @@ pub mod pallet {
         + CreateTransactionBase<Call<Self>>
         + CreateInherent<Call<Self>>
     {
-        /// Overarching event type
-        type RuntimeEvent: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::RuntimeEvent>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// A trait that allows to subscribe to notifications triggered when ethereum event
         /// processes an event
         type ProcessedEventsChecker: ProcessedEventsChecker;

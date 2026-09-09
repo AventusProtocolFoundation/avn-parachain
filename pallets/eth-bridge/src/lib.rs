@@ -177,9 +177,6 @@ pub mod pallet {
         + CreateTransactionBase<Call<Self, I>>
         + CreateInherent<Call<Self, I>>
     {
-        type RuntimeEvent: From<Event<Self, I>>
-            + Into<<Self as frame_system::Config>::RuntimeEvent>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type TimeProvider: UnixTime;
         type WeightInfo: WeightInfo;
         type RuntimeCall: Parameter

@@ -326,6 +326,9 @@ pub async fn start_parachain_node(
     let offchain_worker_enabled = parachain_config.offchain_worker.enabled;
     let avn_port = avn_cli_config.avn_port.clone();
 
+    let metrics = NetworkBackend::register_notification_metrics(
+        parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+    );
     // NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
     // when starting the network.
     let (network, system_rpc_tx, tx_handler_controller, sync_service) =
@@ -339,6 +342,7 @@ pub async fn start_parachain_node(
             relay_chain_interface: relay_chain_interface.clone(),
             import_queue: params.import_queue,
             sybil_resistance_level: CollatorSybilResistance::Resistant, // because of Aura
+            metrics,
         })
         .await?;
 

@@ -55,7 +55,7 @@ frame_support::construct_runtime!(
         Avn: pallet_avn::{Pallet, Storage, Event, Config<T>},
         AvnProxy: pallet_avn_proxy::{Pallet, Call, Storage, Event<T>},
         EthereumEvents: pallet_ethereum_events::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Historical: pallet_session::historical::{Pallet, Storage},
+        Historical: pallet_session::historical::{Pallet, Storage, Event<T>},
     }
 );
 
@@ -218,6 +218,7 @@ impl pallet_balances::Config for TestRuntime {
 }
 
 impl pallet_session::historical::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
 }
@@ -410,7 +411,6 @@ impl EthereumEvents {
 }
 
 impl pallet_avn_proxy::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = AccountId;

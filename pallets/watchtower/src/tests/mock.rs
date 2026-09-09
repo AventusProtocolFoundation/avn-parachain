@@ -38,7 +38,6 @@ frame_support::construct_runtime!(
 );
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type SignerId = SignerId;
     type Public = AccountId;

@@ -633,10 +633,6 @@ pub mod pallet {
         + CreateInherent<Call<Self>>
         + CreateTransactionBase<Call<Self>>
     {
-        /// Runtime event type
-        type RuntimeEvent: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::RuntimeEvent>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Runtime call type
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>

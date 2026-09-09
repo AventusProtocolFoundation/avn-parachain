@@ -160,9 +160,6 @@ pub mod pallet {
         + CreateInherent<Call<Self>>
     {
         #[pallet::no_default_bounds]
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-        #[pallet::no_default_bounds]
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
@@ -211,8 +208,6 @@ pub mod pallet {
 
         #[frame_support::register_default_impl(TestDefaultConfig)]
         impl DefaultConfig for TestDefaultConfig {
-            #[inject_runtime_type]
-            type RuntimeEvent = ();
             #[inject_runtime_type]
             type RuntimeCall = ();
             type ProcessedEventHandler = ();

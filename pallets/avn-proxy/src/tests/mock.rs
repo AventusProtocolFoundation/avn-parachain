@@ -89,7 +89,7 @@ frame_support::construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Historical: pallet_session::historical::{Pallet, Storage},
+        Historical: pallet_session::historical::{Pallet, Storage, Event<T>},
         AssetRegistry: orml_asset_registry,
         AssetManager: orml_currencies,
         Tokens: orml_tokens,
@@ -97,7 +97,6 @@ frame_support::construct_runtime!(
 );
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = AccountPublic;
@@ -146,7 +145,6 @@ impl pallet_balances::Config for TestRuntime {
 }
 
 impl pallet_nft_manager::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type ProcessedEventsChecker = ();
     type Public = AccountPublic;
@@ -166,7 +164,6 @@ parameter_types! {
 }
 
 impl pallet_token_manager::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProcessedEventsChecker = ();
@@ -225,7 +222,6 @@ impl pallet_scheduler::Config for TestRuntime {
 
 impl pallet_eth_bridge::Config for TestRuntime {
     type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type MinEthBlockConfirmation = ConstU64<20>;
     type RuntimeCall = RuntimeCall;
@@ -265,6 +261,7 @@ impl session::Config for TestRuntime {
 }
 
 impl pallet_session::historical::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
 }
@@ -300,7 +297,6 @@ impl orml_currencies::Config for TestRuntime {
 }
 
 impl orml_asset_registry::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type CustomMetadata = AvnAssetMetadata;
     type AssetId = CurrencyId;
     type AuthorityOrigin = EnsureRoot<TestAccountIdPK>;
@@ -330,7 +326,6 @@ impl orml_tokens::Config for TestRuntime {
     type Balance = Balance;
     type CurrencyId = CurrencyId;
     type DustRemovalWhitelist = Everything;
-    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposits = ExistentialDeposits;
     type MaxLocks = MaxLocks;
     type MaxReserves = MaxReserves;

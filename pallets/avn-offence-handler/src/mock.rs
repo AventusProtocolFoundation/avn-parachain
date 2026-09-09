@@ -20,6 +20,7 @@ frame_support::construct_runtime!(
     pub enum TestRuntime {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
+        Historical: pallet_session::historical,
         Avn: pallet_avn::{Pallet, Storage, Event},
         AvnOffenceHandler: avn_offence_handler::{Pallet, Call, Storage, Event<T>},
     }
@@ -48,6 +49,7 @@ impl Config for TestRuntime {
 }
 
 impl pallet_session::historical::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = u64;
     type FullIdentificationOf = ConvertInto;
 }

@@ -167,8 +167,6 @@ pub mod pallet {
             + GetDispatchInfo
             + From<frame_system::Call<Self>>
             + IsSubType<Call<Self>>;
-        /// Overarching event type
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The currency type
         type Currency: Currency<Self::AccountId>
             + ReservableCurrency<Self::AccountId>

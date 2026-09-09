@@ -71,7 +71,7 @@ construct_runtime!(
         Avn: pallet_avn::{Pallet, Storage, Event},
         Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
         AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
-        Historical: pallet_session::historical::{Pallet, Storage},
+        Historical: pallet_session::historical::{Pallet, Storage, Event<T>},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp,
     }
@@ -213,7 +213,6 @@ where
 
 impl Config for Test {
     type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type RewardPaymentDelay = RewardPaymentDelay;
     type MinBlocksPerEra = MinBlocksPerEra;
@@ -247,6 +246,7 @@ impl CollatorPayoutDustHandler<Balance> for TestCollatorPayoutDustHandler {
 }
 
 impl pallet_session::historical::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
 }
@@ -334,7 +334,6 @@ impl session::Config for Test {
 }
 
 impl avn_proxy::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = AccountId;
@@ -347,7 +346,6 @@ impl avn_proxy::Config for Test {
 
 impl pallet_eth_bridge::Config for Test {
     type MaxQueuedTxRequests = ConstU32<100>;
-    type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = ConstU64<20>;

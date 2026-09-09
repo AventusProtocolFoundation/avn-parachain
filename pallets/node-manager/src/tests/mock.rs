@@ -98,7 +98,6 @@ impl pallet_avn::ProcessedEventsChecker for TestProcessedEventsChecker {
 }
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type SignerId = UintAuthorityId;
@@ -178,7 +177,6 @@ impl system::Config for TestRuntime {
 }
 
 impl pallet_avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();

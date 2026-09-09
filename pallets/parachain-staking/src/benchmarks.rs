@@ -193,11 +193,14 @@ fn parachain_staking_on_finalize<T: Config>(author: T::AccountId) {
     <Points<T>>::mutate(now, |x| *x = x.saturating_add(20));
 }
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+fn assert_last_event<T: Config>(generic_event: <T as frame_system::Config>::RuntimeEvent) {
     assert_last_nth_event::<T>(generic_event, 1);
 }
 
-fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::RuntimeEvent, n: u32) {
+fn assert_last_nth_event<T: Config>(
+    generic_event: <T as frame_system::Config>::RuntimeEvent,
+    n: u32,
+) {
     let events = frame_system::Pallet::<T>::events();
     let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
     // compare to the last event record

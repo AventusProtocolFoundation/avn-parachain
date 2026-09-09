@@ -70,7 +70,6 @@ impl system::Config for TestRuntime {
 }
 
 impl pallet_avn_transaction_payment::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type KnownUserOrigin = frame_system::EnsureRoot<AccountId>;
