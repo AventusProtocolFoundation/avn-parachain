@@ -292,6 +292,8 @@ impl session::SessionManager<AccountId> for TestSessionManager {
 }
 
 impl session::Config for TestRuntime {
+    type Currency = Balances;
+    type KeyDeposit = ();
     type SessionManager =
         pallet_session::historical::NoteHistoricalRoot<TestRuntime, TestSessionManager>;
     type Keys = UintAuthorityId;

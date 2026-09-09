@@ -50,7 +50,7 @@ frame_support::construct_runtime!(
     pub enum TestRuntime
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
+        Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>, HoldReason},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Avn: pallet_avn::{Pallet, Storage, Event, Config<T>},
         AvnProxy: pallet_avn_proxy::{Pallet, Call, Storage, Event<T>},
@@ -193,6 +193,8 @@ impl session::SessionManager<AccountId> for TestSessionManager {
 }
 
 impl session::Config for TestRuntime {
+    type Currency = Balances;
+    type KeyDeposit = ();
     type SessionManager =
         pallet_session::historical::NoteHistoricalRoot<TestRuntime, TestSessionManager>;
     type Keys = UintAuthorityId;

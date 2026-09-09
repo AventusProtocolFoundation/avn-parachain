@@ -15,16 +15,16 @@ use cumulus_client_collator::service::CollatorService;
 #[docify::export(lookahead_collator)]
 use cumulus_client_consensus_aura::collators::lookahead::{self as aura, Params as AuraParams};
 use cumulus_client_consensus_common::ParachainBlockImport as TParachainBlockImport;
-use cumulus_client_consensus_proposer::Proposer;
 use cumulus_client_service::{
     build_relay_chain_interface, prepare_node_config, start_relay_chain_tasks,
     CollatorSybilResistance, DARecoveryProfile, StartRelayChainTasksParams,
 };
 use cumulus_primitives_core::{
     relay_chain::{CollatorPair, ValidationCode},
-    ParaId,
+    GetParachainInfo, ParaId,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
+use sp_api::ProvideRuntimeApi;
 
 // Substrate Imports
 use sc_consensus::ImportQueue;
@@ -233,15 +233,13 @@ fn start_consensus<Pool>(
 where
     Pool: sc_transaction_pool_api::TransactionPool<Block = Block> + 'static,
 {
-    let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+    let proposer = sc_basic_authorship::ProposerFactory::with_proof_recording(
         task_manager.spawn_handle(),
         client.clone(),
         transaction_pool,
         prometheus_registry,
         telemetry.clone(),
     );
-
-    let proposer = Proposer::new(proposer_factory);
 
     let collator_service = CollatorService::new(
         client.clone(),
@@ -286,7 +284,6 @@ pub async fn start_parachain_node(
     polkadot_config: Configuration,
     avn_cli_config: AvnCliConfiguration,
     collator_options: CollatorOptions,
-    para_id: ParaId,
     hwbench: Option<sc_sysinfo::HwBench>,
 ) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient>)> {
     let parachain_config = prepare_node_config(parachain_config);
@@ -303,6 +300,13 @@ pub async fn start_parachain_node(
     let client = params.client.clone();
     let backend = params.backend.clone();
     let mut task_manager = params.task_manager;
+
+    // Take the parachain id from the runtime rather than the chain spec.
+    let best_hash = client.chain_info().best_hash;
+    let para_id = client.runtime_api().parachain_id(best_hash).map_err(|_| {
+        "Failed to retrieve parachain id from runtime. Make sure the runtime implements the \
+         `cumulus_primitives_core::GetParachainInfo` runtime API."
+    })?;
 
     let relay_chain_fork_id = polkadot_config.chain_spec.fork_id().map(ToString::to_string);
     let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);

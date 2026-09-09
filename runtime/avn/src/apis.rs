@@ -88,6 +88,12 @@ impl_runtime_apis! {
             }
     }
 
+    impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
+        fn parachain_id() -> cumulus_primitives_core::ParaId {
+            staging_parachain_info::Pallet::<Runtime>::parachain_id()
+        }
+    }
+
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
             VERSION

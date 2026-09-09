@@ -80,7 +80,7 @@ frame_support::construct_runtime!(
         Avn: pallet_avn::{Pallet, Storage, Event},
         TokenManager: token_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config<T>},
-        Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
+        Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>, HoldReason},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
         Historical: pallet_session::historical::{Pallet, Storage, Event<T>},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
@@ -238,6 +238,8 @@ impl pallet_transaction_payment::Config for TestRuntime {
 }
 
 impl session::Config for TestRuntime {
+    type Currency = Balances;
+    type KeyDeposit = ();
     type SessionManager = ParachainStaking;
     type Keys = UintAuthorityId;
     type ShouldEndSession = ParachainStaking;

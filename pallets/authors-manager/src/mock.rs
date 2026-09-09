@@ -90,7 +90,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         AuthorsManager: authors_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>},
+        Session: pallet_session::{Pallet, Call, Storage, Event<T>, Config<T>, HoldReason},
         Historical: pallet_session::historical,
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
@@ -209,7 +209,7 @@ impl pallet_balances::Config for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
-    type RuntimeHoldReason = ();
+    type RuntimeHoldReason = RuntimeHoldReason;
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type RuntimeFreezeReason = ();
@@ -258,6 +258,8 @@ parameter_types! {
 }
 
 impl session::Config for TestRuntime {
+    type Currency = Balances;
+    type KeyDeposit = ();
     type SessionManager = AuthorsManager;
     type Keys = UintAuthorityId;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
