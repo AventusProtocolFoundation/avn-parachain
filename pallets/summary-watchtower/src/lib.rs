@@ -9,9 +9,9 @@ use alloc::{
     vec,
 };
 
-use frame_support::{dispatch::DispatchResult, pallet_prelude::*, traits::IsType};
+use frame_support::{dispatch::DispatchResult, pallet_prelude::*};
 use frame_system::{
-    offchain::{CreateInherent, CreateTransactionBase, SubmitTransaction},
+    offchain::{CreateBare, CreateTransactionBase, SubmitTransaction},
     pallet_prelude::*,
     WeightInfo,
 };
@@ -64,7 +64,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config:
         CreateTransactionBase<Call<Self>>
-        + CreateInherent<Call<Self>>
+        + CreateBare<Call<Self>>
         + frame_system::Config
         + pallet_watchtower::Config
         + pallet_avn::Config
@@ -246,7 +246,7 @@ pub mod pallet {
                 None => return Err("Failed to sign vote data"),
             };
 
-            let call = <T as CreateInherent<pallet_watchtower::Call<T>>>::create_inherent(
+            let call = <T as CreateBare<pallet_watchtower::Call<T>>>::create_bare(
                 pallet_watchtower::Call::unsigned_vote {
                     proposal_id,
                     in_favor,

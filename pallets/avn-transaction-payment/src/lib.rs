@@ -15,7 +15,6 @@ use frame_support::{
     },
     unsigned::TransactionValidityError,
 };
-use frame_system::{self as system};
 
 use core::convert::TryInto;
 pub use pallet::*;

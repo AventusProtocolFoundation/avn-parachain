@@ -68,7 +68,7 @@ use frame_support::{
 };
 use frame_system::{
     ensure_none, ensure_root,
-    offchain::{CreateInherent, CreateTransactionBase, SubmitTransaction},
+    offchain::{CreateBare, CreateTransactionBase, SubmitTransaction},
     pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use pallet_avn::{
@@ -175,7 +175,7 @@ pub mod pallet {
         + scale_info::TypeInfo
         + pallet_session::historical::Config
         + CreateTransactionBase<Call<Self, I>>
-        + CreateInherent<Call<Self, I>>
+        + CreateBare<Call<Self, I>>
     {
         type TimeProvider: UnixTime;
         type WeightInfo: WeightInfo;

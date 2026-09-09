@@ -16,7 +16,7 @@ use frame_support::{
     traits::{Get, IsSubType},
 };
 use frame_system::{
-    offchain::{CreateInherent, CreateTransactionBase, SubmitTransaction},
+    offchain::{CreateBare, CreateTransactionBase, SubmitTransaction},
     pallet_prelude::BlockNumberFor,
 };
 use sp_core::{ConstU32, H160, H256};
@@ -157,7 +157,7 @@ pub mod pallet {
         + avn::Config
         + pallet_session::historical::Config
         + CreateTransactionBase<Call<Self>>
-        + CreateInherent<Call<Self>>
+        + CreateBare<Call<Self>>
     {
         #[pallet::no_default_bounds]
         type RuntimeCall: Parameter
@@ -1225,7 +1225,7 @@ impl<T: Config> Pallet<T> {
             .sign(&(PROCESS_EVENT_CONTEXT, &checked.event.event_id, ingress_counter).encode())
             .ok_or(Error::<T>::ErrorSigning)?;
 
-        let xt = T::create_inherent(
+        let xt = T::create_bare(
             Call::process_event {
                 event_id: checked.event.event_id,
                 ingress_counter,
@@ -1264,7 +1264,7 @@ impl<T: Config> Pallet<T> {
             .key
             .sign(&(SUBMIT_CHECKEVENT_RESULT_CONTEXT, &result, ingress_counter).encode())
             .ok_or(Error::<T>::ErrorSigning)?;
-        let xt = T::create_inherent(
+        let xt = T::create_bare(
             Call::submit_checkevent_result {
                 result,
                 ingress_counter,
@@ -1307,7 +1307,7 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::ErrorSigning)?;
             // TODO [TYPE: business logic][PRI: medium][CRITICAL][JIRA: 349]: Allow for this event
             // to be resubmitted if it fails here
-            let xt = T::create_inherent(
+            let xt = T::create_bare(
                 Call::challenge_event {
                     challenge,
                     ingress_counter,

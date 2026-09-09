@@ -1798,6 +1798,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "clap",
  "cli-commands",
+ "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
  "cumulus-client-consensus-aura",

@@ -20,7 +20,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::{
-    offchain::{CreateInherent, CreateTransactionBase, SubmitTransaction},
+    offchain::{CreateBare, CreateTransactionBase, SubmitTransaction},
     pallet_prelude::*,
 };
 use pallet_avn::{
@@ -630,7 +630,7 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + avn::Config
-        + CreateInherent<Call<Self>>
+        + CreateBare<Call<Self>>
         + CreateTransactionBase<Call<Self>>
     {
         /// Runtime call type

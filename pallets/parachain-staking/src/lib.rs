@@ -106,7 +106,7 @@ pub mod pallet {
         transactional, PalletId,
     };
     pub use frame_system::{
-        offchain::{CreateInherent, CreateTransactionBase, SubmitTransaction},
+        offchain::{CreateBare, CreateTransactionBase, SubmitTransaction},
         pallet_prelude::*,
     };
     pub use pallet_avn::{
@@ -159,7 +159,7 @@ pub mod pallet {
         + pallet_avn::Config
         + pallet_session::historical::Config
         + CreateTransactionBase<Call<Self>>
-        + CreateInherent<Call<Self>>
+        + CreateBare<Call<Self>>
     {
         /// The overarching call type.
         type RuntimeCall: Parameter

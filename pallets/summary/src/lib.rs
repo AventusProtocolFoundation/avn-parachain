@@ -32,7 +32,7 @@ use frame_support::{
 };
 use frame_system::{
     self as system, ensure_none, ensure_root,
-    offchain::{CreateInherent, CreateTransactionBase, SubmitTransaction},
+    offchain::{CreateBare, CreateTransactionBase, SubmitTransaction},
 };
 pub use pallet::*;
 use pallet_avn::{
@@ -106,7 +106,7 @@ pub mod pallet {
         + avn::Config
         + pallet_session::historical::Config
         + CreateTransactionBase<Call<Self, I>>
-        + CreateInherent<Call<Self, I>>
+        + CreateBare<Call<Self, I>>
     {
         /// A period (in block number) to detect when a validator failed to advance the current slot
         /// number
@@ -1249,7 +1249,7 @@ pub mod pallet {
                 &ingress_counter
             );
 
-            let xt = T::create_inherent(
+            let xt = T::create_bare(
                 Call::record_summary_calculation {
                     new_block_number: last_processed_block_number,
                     root_hash,
@@ -1273,7 +1273,7 @@ pub mod pallet {
                 .sign(&(Self::advance_block_context(), Self::current_slot()).encode())
                 .ok_or(Error::<T, I>::ErrorSigning)?;
 
-            let xt = T::create_inherent(
+            let xt = T::create_bare(
                 Call::advance_slot { validator: validator.clone(), signature }.into(),
             );
 

@@ -10,13 +10,10 @@ use alloc::{
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
-    dispatch::DispatchResult,
-    pallet_prelude::*,
-    traits::{IsSubType, IsType},
-    weights::WeightMeter,
+    dispatch::DispatchResult, pallet_prelude::*, traits::IsSubType, weights::WeightMeter,
 };
 use frame_system::{
-    offchain::{CreateInherent, CreateTransactionBase},
+    offchain::{CreateBare, CreateTransactionBase},
     pallet_prelude::*,
 };
 pub use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
@@ -79,7 +76,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        CreateTransactionBase<Call<Self>> + CreateInherent<Call<Self>> + frame_system::Config
+        CreateTransactionBase<Call<Self>> + CreateBare<Call<Self>> + frame_system::Config
     {
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
