@@ -37,6 +37,7 @@ pallet-avn.workspace = true
 frame-benchmarking = { optional = true, workspace = true }
 
 [dev-dependencies]
+pallet-balances = { workspace = true, default-features = true }
 parking_lot.workspace = true
 sp-state-machine = { default-features = true, workspace = true }
 sp-avn-common = { workspace = true, default-features = true, features=["test-utils"] }

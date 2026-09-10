@@ -226,7 +226,6 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
     // Asynchronous backing
     type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
     type ConsensusHook = ConsensusHook;
-    type SelectCore = cumulus_pallet_parachain_system::DefaultCoreSelector<Runtime>;
     type RelayParentOffset = ConstU32<0>;
 }
 
@@ -287,6 +286,8 @@ parameter_types! {
 }
 
 impl pallet_session::Config for Runtime {
+    type Currency = Balances;
+    type KeyDeposit = ();
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     // we don't have stash and controller, thus we don't need the convert as well.
