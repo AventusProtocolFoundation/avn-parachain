@@ -29,7 +29,7 @@ use sp_api::ProvideRuntimeApi;
 // Substrate Imports
 use sc_consensus::ImportQueue;
 use sc_executor::{HeapAllocStrategy, WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY};
-use sc_network::{NetworkBackend, NetworkBlock};
+use sc_network::{NetworkBackend, NetworkBlock, PeerId};
 use sc_service::{
     config::KeystoreConfig, Configuration, PartialComponents, TFullBackend, TFullClient,
     TaskManager,
@@ -44,7 +44,7 @@ use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
 use crate::{avn_config::*, RuntimeApi};
-use cumulus_client_service::ParachainHostFunctions;
+use cumulus_client_service::{ParachainHostFunctions, ParachainTracingExecuteBlock};
 use external_service::node_integration::{self, NodeDeps};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
@@ -227,6 +227,7 @@ fn start_consensus<Pool>(
     relay_chain_slot_duration: Duration,
     para_id: ParaId,
     collator_key: CollatorPair,
+    collator_peer_id: PeerId,
     overseer_handle: OverseerHandle,
     announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
 ) -> Result<(), sc_service::Error>
@@ -259,6 +260,7 @@ where
         },
         keystore,
         collator_key,
+        collator_peer_id,
         para_id,
         overseer_handle,
         relay_chain_slot_duration,
@@ -357,6 +359,9 @@ pub async fn start_parachain_node(
         })
         .await?;
 
+    // Our own network identity, advertised to the relay chain via UMP signal when authoring.
+    let collator_peer_id = network.local_peer_id();
+
     if offchain_worker_enabled {
         use futures::FutureExt;
 
@@ -434,6 +439,8 @@ pub async fn start_parachain_node(
         system_rpc_tx,
         tx_handler_controller,
         telemetry: telemetry.as_mut(),
+        // Lets the `trace_block` RPC re-execute blocks with the parachain block executor.
+        tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(client.clone()))),
     })?;
 
     if let Some(hwbench) = hwbench {
@@ -489,7 +496,7 @@ pub async fn start_parachain_node(
         request_receiver: paranode_rx,
         parachain_network: network,
         advertise_non_global_ips,
-        parachain_genesis_hash: client.chain_info().genesis_hash,
+        parachain_genesis_hash: client.chain_info().genesis_hash.encode(),
         parachain_fork_id,
         parachain_public_addresses,
     });
@@ -545,6 +552,7 @@ pub async fn start_parachain_node(
                 relay_chain_slot_duration,
                 para_id,
                 collator_key.expect("Command line arguments do not allow this. qed"),
+                collator_peer_id,
                 overseer_handle,
                 announce_block,
             )?;

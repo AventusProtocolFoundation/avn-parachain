@@ -104,16 +104,20 @@ pub type UncheckedExtrinsic =
     generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// Executive: handles dispatch to the various modules.
+/// All migrations of the runtime, aside from the ones declared in the pallets.
+///
+/// Wired into `frame_system::Config::SingleBlockMigrations`.
+pub type Migrations = (
+    pallet_validators_manager::migration::ValidatorsManagerMigrations<Runtime>,
+    pallet_avn_anchor::migration::AvnAnchorMigrations<Runtime>,
+);
+
 pub type Executive = frame_executive::Executive<
     Runtime,
     Block,
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        pallet_validators_manager::migration::ValidatorsManagerMigrations<Runtime>,
-        pallet_avn_anchor::migration::AvnAnchorMigrations<Runtime>,
-    ),
 >;
 
 impl_opaque_keys! {
