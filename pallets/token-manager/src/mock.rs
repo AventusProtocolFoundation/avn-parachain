@@ -375,6 +375,8 @@ parameter_type_with_key! {
 }
 
 impl orml_tokens::Config for TestRuntime {
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
     type Amount = Amount;
     type Balance = Balance;
     type CurrencyId = CurrencyId;

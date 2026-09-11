@@ -147,6 +147,8 @@ impl frame_system::Config for Runtime {
     /// The action to take on a Runtime Upgrade
     type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    /// Single-block migrations to run on runtime upgrade (moved here from `Executive`).
+    type SingleBlockMigrations = crate::Migrations;
 }
 
 /// Configure the palelt weight reclaim tx.
@@ -655,6 +657,7 @@ impl pallet_assets::Config for Runtime {
     type RemoveItemsLimit = ConstU32<5>;
     type AssetId = u32;
     type AssetIdParameter = u32;
+    type ReserveData = ();
     type Currency = Balances;
     type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
     type ForceOrigin = EnsureRoot<AccountId>;
@@ -800,6 +803,8 @@ impl<C: orml_tokens::Config> orml_traits::currency::MutationHooks<AccountId, Cur
 
 // This is the "storage" pallet for known tokens
 impl orml_tokens::Config for Runtime {
+    #[cfg(feature = "runtime-benchmarks")]
+    type BenchmarkHelper = ();
     type Amount = Amount;
     type Balance = Balance;
     type CurrencyHooks = CurrencyHooks<Runtime>;

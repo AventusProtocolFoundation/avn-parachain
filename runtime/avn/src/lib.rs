@@ -150,27 +150,31 @@ pub fn is_extrinsic_allowed(encoded: &[u8]) -> FilterResult {
 }
 
 /// Executive: handles dispatch to the various modules.
+/// All migrations of the runtime, aside from the ones declared in the pallets.
+///
+/// Wired into `frame_system::Config::SingleBlockMigrations`.
+pub type Migrations = (
+    migrations::register_avt_token::RegisterAvtToken<Runtime>,
+    pallet_eth_bridge::migration::EthBridgeMigrations<Runtime>,
+    pallet_avn_anchor::migration::AvnAnchorMigrations<Runtime>,
+    pallet_session::migrations::v1::MigrateV0ToV1<
+        Runtime,
+        pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
+    >,
+    cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
+    cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+    cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
+    cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
+    pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+    cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+);
+
 pub type Executive = frame_executive::Executive<
     Runtime,
     Block,
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        migrations::register_avt_token::RegisterAvtToken<Runtime>,
-        pallet_eth_bridge::migration::EthBridgeMigrations<Runtime>,
-        pallet_avn_anchor::migration::AvnAnchorMigrations<Runtime>,
-        pallet_session::migrations::v1::MigrateV0ToV1<
-            Runtime,
-            pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
-        >,
-        cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
-        cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
-        cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
-        cumulus_pallet_xcmp_queue::migration::v7::MigrateV6ToV7<Runtime>,
-        pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-        cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
-    ),
 >;
 
 impl_opaque_keys! {
